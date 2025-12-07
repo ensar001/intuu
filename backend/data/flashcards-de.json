@@ -1,0 +1,40 @@
+{
+  "flashcards": [
+    {
+      "id": "1765034814221",
+      "front": "die Begeisterung",
+      "back": "enthusiasm, excitement\n\nExamples:\n• Seine Begeisterung für Musik ist ansteckend.\n• Die Kinder zeigten große Begeisterung beim Spielen.",
+      "language": "de",
+      "category": "general",
+      "difficulty": "medium",
+      "createdAt": "2025-12-06T15:26:54.221Z",
+      "lastReviewed": "2025-12-07T17:30:48.757Z",
+      "correctCount": 6,
+      "incorrectCount": 2
+    },
+    {
+      "id": "1765128559427",
+      "front": "die Liebe",
+      "back": "love\n\nExamples:\n• Ihre Liebe zur Musik ist ansteckend.\n• Die Liebe ist das stärkste Gefühl der Welt.",
+      "language": "de",
+      "category": "generated",
+      "difficulty": "medium",
+      "createdAt": "2025-12-07T17:29:19.427Z",
+      "lastReviewed": "2025-12-07T17:30:49.134Z",
+      "correctCount": 2,
+      "incorrectCount": 1
+    },
+    {
+      "id": "1765128620004",
+      "front": "die Angst",
+      "back": "fear, anxiety\n\nExamples:\n• Ich habe große Angst vor Spinnen.\n• Seine Angst verhinderte, dass er die Bühne betrat.",
+      "language": "de",
+      "category": "generated",
+      "difficulty": "medium",
+      "createdAt": "2025-12-07T17:30:20.004Z",
+      "lastReviewed": "2025-12-07T17:30:47.503Z",
+      "correctCount": 3,
+      "incorrectCount": 0
+    }
+  ]
+}

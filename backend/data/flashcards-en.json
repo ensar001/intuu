@@ -1,0 +1,28 @@
+{
+  "flashcards": [
+    {
+      "id": "1765034857230",
+      "front": "real",
+      "back": "actually existing as a thing or occurring in fact; not imagined or supposed\n\nExamples:\n• Is that a real diamond, or is it fake?\n• She finally achieved her real dream of becoming a writer.",
+      "language": "en",
+      "category": "generated",
+      "difficulty": "medium",
+      "createdAt": "2025-12-06T15:27:37.230Z",
+      "lastReviewed": "2025-12-06T15:28:09.418Z",
+      "correctCount": 1,
+      "incorrectCount": 2
+    },
+    {
+      "id": "1765128734166",
+      "front": "immigration",
+      "back": "immigration\n\nExamples:\n• The country has strict laws regarding immigration.\n• Economic opportunity is often a major driver of immigration.",
+      "language": "en",
+      "category": "generated",
+      "difficulty": "medium",
+      "createdAt": "2025-12-07T17:32:14.166Z",
+      "lastReviewed": null,
+      "correctCount": 0,
+      "incorrectCount": 0
+    }
+  ]
+}
