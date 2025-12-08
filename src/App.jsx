@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Settings } from 'lucide-react';
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import Login from './components/auth/Login';
+import Signup from './components/auth/Signup';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import Dashboard from './components/features/Dashboard';
@@ -13,6 +16,7 @@ import Writing from './components/features/courses/Writing';
 import Speaking from './components/features/courses/Speaking';
 import GrammarAwareness from './components/features/courses/GrammarAwareness';
 import LearningLevel from './components/features/stats/LearningLevel';
+import Settings from './components/features/Settings';
 
 const App = () => {
   const [currentLanguage, setCurrentLanguage] = useState('de');
@@ -20,8 +24,17 @@ const App = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <BrowserRouter>
-      <div className="flex h-screen bg-white font-sans text-slate-900 overflow-hidden">
+    <AuthProvider>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          
+          {/* Protected Routes */}
+          <Route path="/*" element={
+            <ProtectedRoute>
+              <div className="flex h-screen bg-white font-sans text-slate-900 overflow-hidden">
         
         {/* Sidebar Overlay */}
         {isSidebarOpen && (
@@ -64,18 +77,17 @@ const App = () => {
                 <Route path="/stats/learning-level" element={<LearningLevel interfaceLanguage={interfaceLanguage} />} />
                 <Route path="/stats/words-mastered" element={<Navigate to="/stats/learning-level" replace />} />
                 <Route path="/stats/weekly-goals" element={<Navigate to="/stats/learning-level" replace />} />
-                <Route path="/settings" element={
-                  <div className="text-center py-20 text-slate-500">
-                    <Settings size={48} className="mx-auto mb-4 opacity-20" />
-                    <p>Settings panel coming soon.</p>
-                  </div>
-                } />
+                <Route path="/settings" element={<Settings interfaceLanguage={interfaceLanguage} />} />
               </Routes>
             </div>
           </div>
         </main>
-      </div>
-    </BrowserRouter>
+              </div>
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 };
 

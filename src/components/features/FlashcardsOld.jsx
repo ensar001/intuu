@@ -1,15 +1,12 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, ArrowRight, Plus, Sparkles, Loader2, Trash2, FolderOpen } from 'lucide-react';
+import { RefreshCw, ArrowRight, Plus, Sparkles, Loader2, Trash2 } from 'lucide-react';
 import Button from '../ui/Button';
 import { callGemini } from '../../utils/geminiApi';
-import { cardApi } from '../../utils/deckApi';
-import { useAuth } from '../../contexts/AuthContext';
+import { flashcardAPI } from '../../utils/flashcardApi';
 import { LANGUAGES } from '../../utils/constants';
 import { useTranslation } from '../../utils/translations';
-import DeckSelector from './DeckSelector';
 
 const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
-    const { user } = useAuth();
     const { t } = useTranslation(interfaceLanguage);
     const learningLangConfig = LANGUAGES.find(lang => lang.id === language) || LANGUAGES[1];
     const learningLangName = learningLangConfig.name;
@@ -17,49 +14,33 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
     const interfaceLangConfig = LANGUAGES.find(lang => lang.id === interfaceLanguage);
     const interfaceLangName = interfaceLangConfig ? interfaceLangConfig.name : 'English';
     
+    // If learning language is same as interface language, use English as translation target
     const translationLang = language === interfaceLanguage ? 'en' : interfaceLanguage;
     const translationLangName = language === interfaceLanguage ? 'English' : interfaceLangName;
-
-    const [currentDeck, setCurrentDeck] = useState(null);
-    const [showDeckSelector, setShowDeckSelector] = useState(false);
     const [cards, setCards] = useState([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
     const [showGenerator, setShowGenerator] = useState(false);
     const [topic, setTopic] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const currentCard = cards[currentIndex];
-
+    // Load flashcards from backend on mount
     useEffect(() => {
-        // Show deck selector on mount if no deck selected
-        if (!currentDeck) {
-            setShowDeckSelector(true);
-        }
-    }, []);
+        loadFlashcards();
+    }, [language]); // Reload when language changes
 
-    useEffect(() => {
-        if (currentDeck) {
-            loadCards();
-        }
-    }, [currentDeck]);
-
-    const handleSelectDeck = (deck) => {
-        setCurrentDeck(deck);
-        setShowDeckSelector(false);
-    };
-
-    const loadCards = async () => {
-        if (!currentDeck) return;
-        
+    const loadFlashcards = async () => {
         setIsLoading(true);
         try {
-            const data = await cardApi.getCards(currentDeck.id);
+            const data = await flashcardAPI.getAll(language);
             setCards(data);
-            setCurrentIndex(0);
+            setCurrentIndex(0); // Reset to first card
+            if (data.length === 0) {
+                // Don't auto-create sample cards, let user create them
+            }
         } catch (error) {
-            console.error('Failed to load cards:', error);
+            console.error('Failed to load flashcards:', error);
         } finally {
             setIsLoading(false);
         }
@@ -71,7 +52,7 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
     };
 
     const generateCards = async () => {
-        if (!topic.trim() || !currentDeck) return;
+        if (!topic.trim()) return;
         setIsGenerating(true);
 
         const systemPrompt = `
@@ -108,118 +89,86 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
                 }
             });
 
+            // Create flashcards in backend
             const newCards = [];
             for (const card of result.cards) {
                 const backContent = `${card.translation}\n\nExamples:\n${card.examples.map(ex => `• ${ex}`).join('\n')}`;
-                const newCard = await cardApi.createCard(
-                    currentDeck.id,
-                    card.front,
-                    backContent
-                );
+                const newCard = await flashcardAPI.create({
+                    front: card.front,
+                    back: backContent,
+                    language: language,
+                    category: 'generated',
+                    difficulty: 'medium'
+                });
                 newCards.push(newCard);
             }
 
-            setCards([...cards, ...newCards]);
-            setTopic("");
+            setCards(prev => [...prev, ...newCards]);
             setShowGenerator(false);
-        } catch (error) {
-            console.error('Failed to generate cards:', error);
-            alert('Failed to generate flashcards. Please try again.');
+            setTopic("");
+            
+            // Jump to the first new card
+            if (cards.length === 0) {
+                setCurrentIndex(0); // If no cards existed, show first card
+            } else {
+                setCurrentIndex(cards.length); // Jump to first new card
+            }
+        } catch (e) {
+            alert("Failed to generate cards: " + e.message);
         } finally {
             setIsGenerating(false);
         }
     };
 
     const deleteCurrentCard = async () => {
-        if (!currentCard || cards.length === 0) return;
-        if (!confirm('Are you sure you want to delete this card?')) return;
-
+        if (cards.length === 0) return;
         try {
-            await cardApi.deleteCard(currentCard.id);
-            const updatedCards = cards.filter(c => c.id !== currentCard.id);
-            setCards(updatedCards);
-            
-            if (updatedCards.length === 0) {
-                setCurrentIndex(0);
-            } else {
-                setCurrentIndex(Math.min(currentIndex, updatedCards.length - 1));
+            await flashcardAPI.delete(currentCard.id, language);
+            const newCards = cards.filter(c => c.id !== currentCard.id);
+            setCards(newCards);
+            if (currentIndex >= newCards.length) {
+                setCurrentIndex(Math.max(0, newCards.length - 1));
             }
+            setIsFlipped(false);
         } catch (error) {
-            console.error('Failed to delete card:', error);
-            alert('Failed to delete card');
+            alert("Failed to delete card: " + error.message);
         }
     };
 
-    const recordReview = async (quality) => {
+    const recordReview = async (correct) => {
         if (!currentCard) return;
-        
         try {
-            await cardApi.updateCard(currentCard.id, {
-                next_review_at: new Date(Date.now() + 86400000 * (quality ? 3 : 1)).toISOString(),
-            });
+            await flashcardAPI.recordReview(currentCard.id, correct, language);
         } catch (error) {
             console.error('Failed to record review:', error);
         }
     };
 
-    if (showDeckSelector) {
-        return (
-            <DeckSelector
-                onSelectDeck={handleSelectDeck}
-                onClose={() => setShowDeckSelector(false)}
-            />
-        );
-    }
-
-    if (!currentDeck) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                    <FolderOpen className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-slate-700 mb-2">No Deck Selected</h3>
-                    <p className="text-slate-500 mb-4">Select a deck to start studying</p>
-                    <Button onClick={() => setShowDeckSelector(true)} variant="primary">
-                        Select Deck
-                    </Button>
-                </div>
-            </div>
-        );
-    }
+    const currentCard = cards[currentIndex];
 
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                    <p className="text-slate-600">Loading cards...</p>
-                </div>
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
             </div>
         );
     }
 
     if (cards.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center h-full">
-                <div className="text-center max-w-md">
-                    <div className="w-24 h-24 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <Plus className="w-12 h-12 text-indigo-600" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-slate-800 mb-2">No Cards Yet</h3>
-                    <p className="text-slate-600 mb-6">
-                        Add your first card to <strong>{currentDeck.title}</strong>
-                    </p>
-                    <div className="flex gap-3 justify-center">
-                        <Button variant="primary" onClick={() => setShowGenerator(true)}>
-                            <Sparkles className="w-4 h-4" />
-                            Generate Card
-                        </Button>
-                        <Button variant="secondary" onClick={() => setShowDeckSelector(true)}>
-                            Change Deck
+            <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto py-6">
+                {!showGenerator ? (
+                    <div className="text-center">
+                        <h2 className="text-2xl font-bold text-slate-800 mb-4">{t('noFlashcardsYet')}</h2>
+                        <p className="text-slate-500 mb-6">{t('createFirstCard')}</p>
+                        <Button variant="magic" onClick={() => setShowGenerator(true)} icon={Plus}>
+                            {t('createFirstCardBtn')}
                         </Button>
                     </div>
-
-                    {showGenerator && (
-                        <div className="mt-6 p-4 bg-indigo-50 rounded-xl">
+                ) : (
+                    <div className="w-full">
+                        <h2 className="text-2xl font-bold text-slate-800 mb-6">{t('vocabularyDeck')}</h2>
+                        <div className="w-full p-4 mb-6 bg-indigo-50 rounded-xl">
                             <div className="flex gap-2">
                                 <input
                                     value={topic}
@@ -232,13 +181,17 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
                                     variant="magic"
                                     onClick={generateCards}
                                     disabled={isGenerating}
+                                    icon={isGenerating ? Loader2 : Sparkles}
                                 >
-                                    {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                    {isGenerating ? t('generating') : t('generateDeck')}
                                 </Button>
                             </div>
                         </div>
-                    )}
-                </div>
+                        <Button variant="secondary" onClick={() => setShowGenerator(false)}>
+                            Cancel
+                        </Button>
+                    </div>
+                )}
             </div>
         );
     }
@@ -247,20 +200,13 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
         <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto py-6">
             <div className="w-full flex justify-between items-center mb-6">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800">{currentDeck.title}</h2>
+                    <h2 className="text-2xl font-bold text-slate-800">{t('vocabularyDeck')}</h2>
                     <p className="text-sm text-slate-500">{t('language')}: {learningLangName}</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                     <span className="text-sm font-medium text-slate-500">{currentIndex + 1} / {cards.length}</span>
-                    <Button variant="secondary" onClick={() => setShowDeckSelector(true)} className="text-sm">
-                        <FolderOpen className="w-4 h-4" />
-                    </Button>
-                    <Button variant="secondary" onClick={() => setShowGenerator(!showGenerator)}>
-                        <Plus className="w-4 h-4" />
-                    </Button>
-                    <Button variant="secondary" onClick={deleteCurrentCard}>
-                        <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <Button variant="secondary" onClick={() => setShowGenerator(!showGenerator)} icon={Plus}>{t('addCards')}</Button>
+                    <Button variant="secondary" onClick={deleteCurrentCard} icon={Trash2}>{t('deleteCard')}</Button>
                 </div>
             </div>
 
@@ -277,8 +223,9 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
                             variant="magic"
                             onClick={generateCards}
                             disabled={isGenerating}
+                            icon={isGenerating ? Loader2 : Sparkles}
                         >
-                            {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            {isGenerating ? t('generating') : t('generateDeck')}
                         </Button>
                     </div>
                 </div>
@@ -293,7 +240,7 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
                         {/* Front */}
                         <div className="absolute inset-0 bg-white rounded-2xl shadow-xl flex flex-col items-center justify-center p-8 backface-hidden">
                             <div className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-4">{t('germanWord')}</div>
-                            <h3 className="text-4xl font-serif text-slate-800 text-center">{currentCard.front_text}</h3>
+                            <h3 className="text-4xl font-serif text-slate-800 text-center">{currentCard.front}</h3>
                             <p className="mt-8 text-slate-400 text-sm flex items-center gap-2">
                                 <RefreshCw size={14} /> {t('tapToFlip')}
                             </p>
@@ -303,7 +250,7 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
                         <div className="absolute inset-0 bg-indigo-600 rounded-2xl shadow-xl flex flex-col justify-center p-8 backface-hidden rotate-y-180">
                             <div className="text-xs font-bold text-indigo-200 uppercase tracking-widest mb-3">{t('translation')}</div>
                             <div className="text-white whitespace-pre-line">
-                                {currentCard.back_text}
+                                {currentCard.back}
                             </div>
                         </div>
                     </div>
