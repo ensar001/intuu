@@ -29,7 +29,7 @@
 2. Update the Supabase values:
 
 ```env
-VITE_GEMINI_API_KEY=AIzaSyBpuMw6fcPU3WXmK-Jhg7LTS23RIIFCv3Y
+VITE_GEMINI_API_KEY=
 VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
 ```
