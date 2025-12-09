@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Zap, Sparkles, Loader2 } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
-import { callGemini } from '../../utils/geminiApi';
+import { analyzeText } from '../../utils/geminiApi';
 import { LANGUAGES } from '../../utils/constants';
 import { useTranslation } from '../../utils/translations';
+import { validateAnalysisText } from '../../utils/inputValidation';
 
 const TextAnalyzer = ({ currentLanguage = 'de', interfaceLanguage = 'en' }) => {
   const languageConfig = LANGUAGES.find(lang => lang.id === currentLanguage) || LANGUAGES[1];
@@ -36,55 +37,23 @@ const TextAnalyzer = ({ currentLanguage = 'de', interfaceLanguage = 'en' }) => {
   ];
 
   const analyzeText = async () => {
-    if (!text.trim()) return;
+    // Validate input
+    const validation = validateAnalysisText(text);
+    if (!validation.valid) {
+      alert(validation.error);
+      return;
+    }
+
     setIsAnalyzing(true);
 
-    const systemPrompt = `
-      You are an expert ${languageName} language teacher specializing in ${selectedLevel.toUpperCase()} proficiency level. 
-      Analyze the provided ${languageName} text for ${selectedLevel.toUpperCase()} level learners.
-      Provide ALL explanations and grammar terminology in ${interfaceLanguageName}.
-      Return a JSON object containing a 'sentences' array. 
-      For each sentence in the text, provide:
-      1. 'original': the sentence text in ${languageName}.
-      2. 'chunks': an array of objects breaking the sentence down. Each object has 'text' and 'type' ('normal', 'grammar', 'verb', 'case').
-      3. 'grammar': an array of strings listing important grammar structures found (e.g., "Perfekt tense", "Dativ case", "modal verb") - write these explanations in ${interfaceLanguageName}.
-      4. 'verbs': an array of strings listing verbs and their forms found - write these in ${interfaceLanguageName}.
-      5. 'cases': an array of strings listing grammatical cases used (Nominativ, Akkusativ, Dativ, Genitiv) - write these in ${interfaceLanguageName}.
-      6. 'level': estimated CEFR level (A2, B1, B2, C1, C2).
-      ${shouldTranslate ? `7. 'translation': ${interfaceLanguageName} translation of the sentence.` : ''}
-    `;
-
     try {
-      const result = await callGemini(text, systemPrompt, {
-        type: "OBJECT",
-        properties: {
-          sentences: {
-            type: "ARRAY",
-            items: {
-              type: "OBJECT",
-              properties: {
-                original: { type: "STRING" },
-                chunks: {
-                  type: "ARRAY",
-                  items: {
-                    type: "OBJECT",
-                    properties: {
-                      text: { type: "STRING" },
-                      type: { type: "STRING" },
-                      note: { type: "STRING" }
-                    }
-                  }
-                },
-                grammar: { type: "ARRAY", items: { type: "STRING" } },
-                verbs: { type: "ARRAY", items: { type: "STRING" } },
-                cases: { type: "ARRAY", items: { type: "STRING" } },
-                level: { type: "STRING" },
-                translation: { type: "STRING" }
-              }
-            }
-          }
-        }
-      });
+      const result = await analyzeText(
+        validation.sanitized,
+        selectedLevel,
+        languageName,
+        interfaceLanguageName,
+        shouldTranslate
+      );
       setAnalysis(result.sentences);
     } catch (error) {
       alert("Failed to analyze text. Please try again.");

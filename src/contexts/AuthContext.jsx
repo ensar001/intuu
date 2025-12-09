@@ -45,7 +45,9 @@ export const AuthProvider = ({ children }) => {
       const profileData = await authHelpers.getProfile(userId);
       setProfile(profileData);
     } catch (error) {
-      console.error('Error loading profile:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error loading profile:', error);
+      }
     } finally {
       setLoading(false);
     }

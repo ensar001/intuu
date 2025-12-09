@@ -25,7 +25,9 @@ export default function DeckSelector({ onSelectDeck, onClose }) {
       const data = await deckApi.getDecks(user.id);
       setDecks(data);
     } catch (err) {
-      console.error('Failed to load decks:', err);
+      if (import.meta.env.DEV) {
+        console.error('Failed to load decks:', err);
+      }
       setError('Failed to load decks');
     } finally {
       setLoading(false);
@@ -50,7 +52,9 @@ export default function DeckSelector({ onSelectDeck, onClose }) {
       setShowCreateForm(false);
       onSelectDeck(newDeck);
     } catch (err) {
-      console.error('Failed to create deck:', err);
+      if (import.meta.env.DEV) {
+        console.error('Failed to create deck:', err);
+      }
       setError('Failed to create deck');
     } finally {
       setCreating(false);
@@ -68,7 +72,9 @@ export default function DeckSelector({ onSelectDeck, onClose }) {
       await deckApi.deleteDeck(deckId);
       setDecks(decks.filter(d => d.id !== deckId));
     } catch (err) {
-      console.error('Failed to delete deck:', err);
+      if (import.meta.env.DEV) {
+        console.error('Failed to delete deck:', err);
+      }
       setError('Failed to delete deck');
     }
   };

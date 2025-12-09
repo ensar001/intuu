@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, ArrowRight, Plus, Sparkles, Loader2, Trash2, FolderOpen } from 'lucide-react';
 import Button from '../ui/Button';
-import { callGemini } from '../../utils/geminiApi';
+import { generateFlashcards } from '../../utils/geminiApi';
 import { cardApi } from '../../utils/deckApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { LANGUAGES } from '../../utils/constants';
 import { useTranslation } from '../../utils/translations';
 import DeckSelector from './DeckSelector';
+import { validateTopic } from '../../utils/inputValidation';
 
 const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
     const { user } = useAuth();
@@ -59,7 +60,9 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
             setCards(data);
             setCurrentIndex(0);
         } catch (error) {
-            console.error('Failed to load cards:', error);
+            if (import.meta.env.DEV) {
+                console.error('Failed to load cards:', error);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -71,42 +74,23 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
     };
 
     const generateCards = async () => {
-        if (!topic.trim() || !currentDeck) return;
+        // Validate topic input
+        const validation = validateTopic(topic);
+        if (!validation.valid) {
+            alert(validation.error);
+            return;
+        }
+
+        if (!currentDeck) return;
         setIsGenerating(true);
 
-        const systemPrompt = `
-      You are generating vocabulary flashcards for a ${learningLangName} language learner whose interface language is ${interfaceLangName}.
-      The user provided: "${topic}"
-      
-      IMPORTANT: For German nouns, ALWAYS include the article (der/die/das) as part of the word.
-      
-      Determine the language of the input.
-      - If it's a ${learningLangName} word: Create a flashcard with the ${learningLangName} word on the front (including article for German nouns), and on the back provide the ${translationLangName} translation plus 2 example sentences in ${learningLangName} using that word.
-      - If it's NOT a ${learningLangName} word: Translate it to ${learningLangName} (including article for German nouns) and put the ${learningLangName} translation on the front, and on the back provide the ${translationLangName} translation plus 2 example sentences in ${learningLangName} using the word.
-      
-      Return JSON with a 'cards' array containing 1 flashcard object with:
-      'front': the ${learningLangName} word or phrase (WITH article for German nouns like "der Tisch", "die Katze", "das Buch").
-      'translation': the ${translationLangName} translation.
-      'examples': an array of exactly 2 ${learningLangName} sentences using the word.
-    `;
-
         try {
-            const result = await callGemini(topic, systemPrompt, {
-                type: "OBJECT",
-                properties: {
-                    cards: {
-                        type: "ARRAY",
-                        items: {
-                            type: "OBJECT",
-                            properties: {
-                                front: { type: "STRING" },
-                                translation: { type: "STRING" },
-                                examples: { type: "ARRAY", items: { type: "STRING" } }
-                            }
-                        }
-                    }
-                }
-            });
+            const result = await generateFlashcards(
+                validation.sanitized,
+                learningLangName,
+                interfaceLangName,
+                translationLangName
+            );
 
             const newCards = [];
             for (const card of result.cards) {
@@ -123,7 +107,9 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
             setTopic("");
             setShowGenerator(false);
         } catch (error) {
-            console.error('Failed to generate cards:', error);
+            if (import.meta.env.DEV) {
+                console.error('Failed to generate cards:', error);
+            }
             alert('Failed to generate flashcards. Please try again.');
         } finally {
             setIsGenerating(false);
@@ -145,7 +131,9 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
                 setCurrentIndex(Math.min(currentIndex, updatedCards.length - 1));
             }
         } catch (error) {
-            console.error('Failed to delete card:', error);
+            if (import.meta.env.DEV) {
+                console.error('Failed to delete card:', error);
+            }
             alert('Failed to delete card');
         }
     };
@@ -158,7 +146,9 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
                 next_review_at: new Date(Date.now() + 86400000 * (quality ? 3 : 1)).toISOString(),
             });
         } catch (error) {
-            console.error('Failed to record review:', error);
+            if (import.meta.env.DEV) {
+                console.error('Failed to record review:', error);
+            }
         }
     };
 

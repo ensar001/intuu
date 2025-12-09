@@ -1,22 +1,31 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import Login from './components/auth/Login';
-import Signup from './components/auth/Signup';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
-import Dashboard from './components/features/Dashboard';
-import TextAnalyzer from './components/features/TextAnalyzer';
-import GermanTutor from './components/features/GermanTutor';
-import Flashcards from './components/features/Flashcards';
-import Listening from './components/features/courses/Listening';
-import Reading from './components/features/courses/Reading';
-import Writing from './components/features/courses/Writing';
-import Speaking from './components/features/courses/Speaking';
-import GrammarAwareness from './components/features/courses/GrammarAwareness';
-import LearningLevel from './components/features/stats/LearningLevel';
-import Settings from './components/features/Settings';
+
+// Lazy load heavy components
+const Login = lazy(() => import('./components/auth/Login'));
+const Signup = lazy(() => import('./components/auth/Signup'));
+const Dashboard = lazy(() => import('./components/features/Dashboard'));
+const TextAnalyzer = lazy(() => import('./components/features/TextAnalyzer'));
+const GermanTutor = lazy(() => import('./components/features/GermanTutor'));
+const Flashcards = lazy(() => import('./components/features/Flashcards'));
+const Listening = lazy(() => import('./components/features/courses/Listening'));
+const Reading = lazy(() => import('./components/features/courses/Reading'));
+const Writing = lazy(() => import('./components/features/courses/Writing'));
+const Speaking = lazy(() => import('./components/features/courses/Speaking'));
+const GrammarAwareness = lazy(() => import('./components/features/courses/GrammarAwareness'));
+const LearningLevel = lazy(() => import('./components/features/stats/LearningLevel'));
+const Settings = lazy(() => import('./components/features/Settings'));
+
+// Loading component
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center h-screen">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+  </div>
+);
 
 const App = () => {
   const [currentLanguage, setCurrentLanguage] = useState('de');
@@ -28,8 +37,8 @@ const App = () => {
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           {/* Public Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<Suspense fallback={<LoadingFallback />}><Login /></Suspense>} />
+          <Route path="/signup" element={<Suspense fallback={<LoadingFallback />}><Signup /></Suspense>} />
           
           {/* Protected Routes */}
           <Route path="/*" element={
@@ -63,22 +72,24 @@ const App = () => {
           {/* Content Area */}
           <div className="flex-1 overflow-auto p-4 md:p-8 bg-slate-50/50">
             <div className="max-w-5xl mx-auto h-full">
-              <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<Dashboard currentLanguage={currentLanguage} setLanguage={setCurrentLanguage} interfaceLanguage={interfaceLanguage} />} />
-                <Route path="/text-analyzer" element={<TextAnalyzer currentLanguage={currentLanguage} interfaceLanguage={interfaceLanguage} />} />
-                <Route path="/language-tutor" element={<GermanTutor currentLanguage={currentLanguage} interfaceLanguage={interfaceLanguage} />} />
-                <Route path="/flashcards" element={<Flashcards language={currentLanguage} interfaceLanguage={interfaceLanguage} />} />
-                <Route path="/courses/listening" element={<Listening interfaceLanguage={interfaceLanguage} />} />
-                <Route path="/courses/reading" element={<Reading interfaceLanguage={interfaceLanguage} />} />
-                <Route path="/courses/writing" element={<Writing interfaceLanguage={interfaceLanguage} />} />
-                <Route path="/courses/speaking" element={<Speaking interfaceLanguage={interfaceLanguage} />} />
-                <Route path="/courses/grammar" element={<GrammarAwareness interfaceLanguage={interfaceLanguage} />} />
-                <Route path="/stats/learning-level" element={<LearningLevel interfaceLanguage={interfaceLanguage} />} />
-                <Route path="/stats/words-mastered" element={<Navigate to="/stats/learning-level" replace />} />
-                <Route path="/stats/weekly-goals" element={<Navigate to="/stats/learning-level" replace />} />
-                <Route path="/settings" element={<Settings interfaceLanguage={interfaceLanguage} />} />
-              </Routes>
+              <Suspense fallback={<LoadingFallback />}>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<Dashboard currentLanguage={currentLanguage} setLanguage={setCurrentLanguage} interfaceLanguage={interfaceLanguage} />} />
+                  <Route path="/text-analyzer" element={<TextAnalyzer currentLanguage={currentLanguage} interfaceLanguage={interfaceLanguage} />} />
+                  <Route path="/language-tutor" element={<GermanTutor currentLanguage={currentLanguage} interfaceLanguage={interfaceLanguage} />} />
+                  <Route path="/flashcards" element={<Flashcards language={currentLanguage} interfaceLanguage={interfaceLanguage} />} />
+                  <Route path="/courses/listening" element={<Listening interfaceLanguage={interfaceLanguage} />} />
+                  <Route path="/courses/reading" element={<Reading interfaceLanguage={interfaceLanguage} />} />
+                  <Route path="/courses/writing" element={<Writing interfaceLanguage={interfaceLanguage} />} />
+                  <Route path="/courses/speaking" element={<Speaking interfaceLanguage={interfaceLanguage} />} />
+                  <Route path="/courses/grammar" element={<GrammarAwareness interfaceLanguage={interfaceLanguage} />} />
+                  <Route path="/stats/learning-level" element={<LearningLevel interfaceLanguage={interfaceLanguage} />} />
+                  <Route path="/stats/words-mastered" element={<Navigate to="/stats/learning-level" replace />} />
+                  <Route path="/stats/weekly-goals" element={<Navigate to="/stats/learning-level" replace />} />
+                  <Route path="/settings" element={<Settings interfaceLanguage={interfaceLanguage} />} />
+                </Routes>
+              </Suspense>
             </div>
           </div>
         </main>

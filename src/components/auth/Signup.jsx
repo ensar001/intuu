@@ -14,6 +14,33 @@ export default function Signup() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
+  // Password validation function
+  const validatePassword = (password) => {
+    const minLength = 12;
+    if (password.length < minLength) {
+      return `Password must be at least ${minLength} characters`;
+    }
+
+    // Check complexity: at least 3 of 4 character types
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /[0-9]/.test(password);
+    const hasSpecialChar = /[^A-Za-z0-9]/.test(password);
+    
+    const complexityScore = [hasUpperCase, hasLowerCase, hasNumbers, hasSpecialChar].filter(Boolean).length;
+    if (complexityScore < 3) {
+      return 'Password must include at least 3 of: uppercase letters, lowercase letters, numbers, special characters';
+    }
+
+    // Check against common passwords
+    const commonPasswords = ['password123', '123456789', 'qwerty123', 'admin123', 'welcome123'];
+    if (commonPasswords.some(common => password.toLowerCase().includes(common))) {
+      return 'Password is too common. Please choose a stronger password';
+    }
+
+    return null; // Password is valid
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -27,8 +54,9 @@ export default function Signup() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
@@ -107,7 +135,7 @@ export default function Signup() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
+                Password (min 12 characters)
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -120,6 +148,9 @@ export default function Signup() {
                   disabled={loading}
                 />
               </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Must include 3 of: uppercase, lowercase, numbers, special characters
+              </p>
             </div>
 
             <div>

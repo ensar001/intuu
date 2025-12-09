@@ -40,7 +40,10 @@ export const authHelpers = {
     
     // Create profile immediately after signup
     if (data.user) {
-      console.log('Creating profile for user:', data.user.id);
+      // Profile creation logging (development only)
+      if (import.meta.env.DEV) {
+        console.log('Creating profile for user:', data.user.id);
+      }
       
       const { error: profileError } = await supabase
         .from('profiles')
@@ -55,11 +58,15 @@ export const authHelpers = {
         ]);
       
       if (profileError) {
-        console.error('Profile creation error:', profileError);
+        if (import.meta.env.DEV) {
+          console.error('Profile creation error:', profileError);
+        }
         throw new Error(`Failed to create profile: ${profileError.message}`);
       }
       
-      console.log('Profile created successfully');
+      if (import.meta.env.DEV) {
+        console.log('Profile created successfully');
+      }
     }
     
     return data;

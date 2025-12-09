@@ -29,6 +29,7 @@ export default function Settings({ interfaceLanguage = 'en' }) {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
 
   useEffect(() => {
     if (profile) {
@@ -66,16 +67,48 @@ export default function Settings({ interfaceLanguage = 'en' }) {
     }
   };
 
+  const validatePassword = (password) => {
+    const minLength = 12;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    
+    if (password.length < minLength) {
+      return 'Password must be at least 12 characters long';
+    }
+    
+    const complexityScore = [hasUpperCase, hasLowerCase, hasNumbers, hasSpecialChar]
+      .filter(Boolean).length;
+    
+    if (complexityScore < 3) {
+      return 'Password must include at least 3 of: uppercase, lowercase, numbers, special characters';
+    }
+    
+    const commonPasswords = ['password123', '123456789', 'qwerty123', 'admin123', 'welcome123'];
+    if (commonPasswords.includes(password.toLowerCase())) {
+      return 'This password is too common. Please choose a stronger password.';
+    }
+    
+    return null;
+  };
+
   const handleChangePassword = async (e) => {
     e.preventDefault();
+
+    if (!currentPassword) {
+      setMessage({ type: 'error', text: 'Current password is required' });
+      return;
+    }
 
     if (!newPassword || !confirmPassword) {
       setMessage({ type: 'error', text: 'Please fill in all password fields' });
       return;
     }
 
-    if (newPassword.length < 6) {
-      setMessage({ type: 'error', text: 'Password must be at least 6 characters' });
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      setMessage({ type: 'error', text: passwordError });
       return;
     }
 
@@ -88,6 +121,19 @@ export default function Settings({ interfaceLanguage = 'en' }) {
       setLoading(true);
       setMessage({ type: '', text: '' });
 
+      // Verify current password by re-authenticating
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword
+      });
+
+      if (signInError) {
+        setMessage({ type: 'error', text: 'Current password is incorrect' });
+        setLoading(false);
+        return;
+      }
+
+      // Now update the password
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });
@@ -120,16 +166,31 @@ export default function Settings({ interfaceLanguage = 'en' }) {
       return;
     }
 
+    if (!deletePassword) {
+      setMessage({ type: 'error', text: 'Please enter your password to confirm deletion' });
+      return;
+    }
+
     try {
       setLoading(true);
       setMessage({ type: '', text: '' });
+
+      // Verify password before deletion
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: deletePassword
+      });
+
+      if (authError) {
+        setMessage({ type: 'error', text: 'Incorrect password. Account deletion cancelled.' });
+        setLoading(false);
+        return;
+      }
 
       // Delete the user's own account using the RPC function
       const { error: rpcError } = await supabase.rpc('delete_user');
 
       if (rpcError) {
-        console.error('RPC delete failed, trying direct method:', rpcError);
-        
         // Fallback: Delete profile first (decks/cards will cascade)
         const { error: profileError } = await supabase
           .from('profiles')
@@ -145,7 +206,6 @@ export default function Settings({ interfaceLanguage = 'en' }) {
       sessionStorage.clear();
       window.location.href = '/login';
     } catch (err) {
-      console.error('Delete account error:', err);
       setMessage({ type: 'error', text: 'Failed to delete account: ' + (err.message || 'Unknown error') });
       setLoading(false);
     }
@@ -230,7 +290,30 @@ export default function Settings({ interfaceLanguage = 'en' }) {
           <form onSubmit={handleChangePassword} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                New Password
+                Current Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full px-4 py-2 pr-10 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                  placeholder="Enter current password"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                New Password (min 12 characters)
               </label>
               <div className="relative">
                 <input
@@ -249,6 +332,9 @@ export default function Settings({ interfaceLanguage = 'en' }) {
                   {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Must include 3 of: uppercase, lowercase, numbers, special characters
+              </p>
             </div>
 
             <div>
@@ -332,6 +418,19 @@ export default function Settings({ interfaceLanguage = 'en' }) {
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-red-900 mb-2">
+                      Enter your password to confirm
+                    </label>
+                    <input
+                      type="password"
+                      value={deletePassword}
+                      onChange={(e) => setDeletePassword(e.target.value)}
+                      className="w-full px-4 py-2 border-2 border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+                      placeholder="Password"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-red-900 mb-2">
                       Type "DELETE" to confirm
                     </label>
                     <input
@@ -346,7 +445,7 @@ export default function Settings({ interfaceLanguage = 'en' }) {
                   <div className="flex gap-2">
                     <Button
                       onClick={handleDeleteAccount}
-                      disabled={loading || deleteConfirmText !== 'DELETE'}
+                      disabled={loading || deleteConfirmText !== 'DELETE' || !deletePassword}
                       className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
                     >
                       Confirm Delete
@@ -355,6 +454,7 @@ export default function Settings({ interfaceLanguage = 'en' }) {
                       onClick={() => {
                         setShowDeleteConfirm(false);
                         setDeleteConfirmText('');
+                        setDeletePassword('');
                       }}
                       variant="secondary"
                       disabled={loading}

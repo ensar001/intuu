@@ -1,50 +1,99 @@
+// Rate limiting configuration
+const MIN_CALL_INTERVAL = 1000; // 1 second between calls
+let lastCallTime = 0;
+
+/**
+ * Delays execution to enforce rate limiting
+ * @returns {Promise} Resolves when rate limit allows next call
+ */
+const enforceRateLimit = async () => {
+  const now = Date.now();
+  const timeSinceLastCall = now - lastCallTime;
+  
+  if (timeSinceLastCall < MIN_CALL_INTERVAL) {
+    const waitTime = MIN_CALL_INTERVAL - timeSinceLastCall;
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+  }
+  
+  lastCallTime = Date.now();
+};
+
+/**
+ * Get auth token from Supabase session
+ */
+const getAuthToken = async () => {
+  const { supabase } = await import('./supabaseClient.js');
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token;
+};
+
+/**
+ * Call backend API which proxies to Gemini
+ * @param {string} endpoint - Backend endpoint (/api/ai/analyze-text, /api/ai/generate-flashcards, /api/ai/tutor-chat)
+ * @param {object} payload - Request payload
+ */
+const callBackendAI = async (endpoint, payload) => {
+  await enforceRateLimit();
+  
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`http://localhost:3001${endpoint}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error(`API Error: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+/**
+ * Analyze text for language learning
+ */
+export const analyzeText = async (text, level, languageName, interfaceLanguageName, shouldTranslate) => {
+  return await callBackendAI('/api/ai/analyze-text', {
+    text,
+    level,
+    languageName,
+    interfaceLanguageName,
+    shouldTranslate
+  });
+};
+
+/**
+ * Generate flashcards from topic
+ */
+export const generateFlashcards = async (topic, learningLangName, interfaceLangName, translationLangName) => {
+  return await callBackendAI('/api/ai/generate-flashcards', {
+    topic,
+    learningLangName,
+    interfaceLangName,
+    translationLangName
+  });
+};
+
+/**
+ * Language tutor chat
+ */
+export const tutorChat = async (userInput, conversationHistory, languageName) => {
+  return await callBackendAI('/api/ai/tutor-chat', {
+    userInput,
+    conversationHistory,
+    languageName
+  });
+};
+
+// Legacy function for backwards compatibility (deprecated)
 export const callGemini = async (prompt, systemInstruction, responseSchema = null, conversationHistory = []) => {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-
-  // Build contents array from conversation history
-  const contents = conversationHistory.length > 0 
-    ? conversationHistory.map(msg => ({
-        role: msg.role === 'bot' ? 'model' : 'user',
-        parts: [{ text: msg.text }]
-      }))
-    : [{ parts: [{ text: prompt }] }];
-
-  // Add the current prompt if we have history
-  if (conversationHistory.length > 0) {
-    contents.push({
-      role: 'user',
-      parts: [{ text: prompt }]
-    });
-  }
-
-  const payload = {
-    contents,
-    systemInstruction: { parts: [{ text: systemInstruction }] },
-    generationConfig: {
-      responseMimeType: responseSchema ? "application/json" : "text/plain",
-      responseSchema: responseSchema
-    }
-  };
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    
-    if (!response.ok) throw new Error(`API Error: ${response.status}`);
-    
-    const data = await response.json();
-    const textResult = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
-    if (responseSchema) {
-      return JSON.parse(textResult);
-    }
-    return textResult;
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    throw error;
-  }
+  console.warn('callGemini is deprecated. Use specific functions: analyzeText, generateFlashcards, or tutorChat');
+  throw new Error('Direct Gemini calls are no longer supported. Use backend API functions.');
 };

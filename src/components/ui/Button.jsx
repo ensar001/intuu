@@ -1,4 +1,6 @@
-const Button = ({ children, variant = "primary", onClick, className = "", icon: Icon, disabled = false }) => {
+import { memo } from 'react';
+
+const Button = memo(({ children, variant = "primary", onClick, className = "", icon: Icon, disabled = false }) => {
   const baseStyle = "px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed";
   const variants = {
     primary: "bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 shadow-md shadow-indigo-200",
@@ -14,6 +16,8 @@ const Button = ({ children, variant = "primary", onClick, className = "", icon: 
       {children}
     </button>
   );
-};
+});
+
+Button.displayName = 'Button';
 
 export default Button;
