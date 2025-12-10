@@ -71,55 +71,6 @@ router.post('/analyze-text', authenticateUser, async (req, res) => {
   }
 });
 
-// POST /api/ai/generate-flashcards - Generate flashcards from topic
-router.post('/generate-flashcards', authenticateUser, async (req, res) => {
-  try {
-    const { topic, learningLangName, interfaceLangName, translationLangName } = req.body;
-
-    if (!topic || !learningLangName) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    const systemPrompt = `
-      You are generating vocabulary flashcards for a ${learningLangName} language learner whose interface language is ${interfaceLangName}.
-      The user provided: "${topic}"
-      
-      IMPORTANT: For German nouns, ALWAYS include the article (der/die/das) as part of the word.
-      
-      Determine the language of the input.
-      - If it's a ${learningLangName} word: Create a flashcard with the ${learningLangName} word on the front (including article for German nouns), and on the back provide the ${translationLangName} translation plus 2 example sentences in ${learningLangName} using that word.
-      - If it's NOT a ${learningLangName} word: Translate it to ${learningLangName} (including article for German nouns) and put the ${learningLangName} translation on the front, and on the back provide the ${translationLangName} translation plus 2 example sentences in ${learningLangName} using the word.
-      
-      Return JSON with a 'cards' array containing 1 flashcard object with:
-      'front': the ${learningLangName} word or phrase (WITH article for German nouns like "der Tisch", "die Katze", "das Buch").
-      'translation': the ${translationLangName} translation.
-      'examples': an array of exactly 2 ${learningLangName} sentences using the word.
-    `;
-
-    const responseSchema = {
-      type: "OBJECT",
-      properties: {
-        cards: {
-          type: "ARRAY",
-          items: {
-            type: "OBJECT",
-            properties: {
-              front: { type: "STRING" },
-              translation: { type: "STRING" },
-              examples: { type: "ARRAY", items: { type: "STRING" } }
-            }
-          }
-        }
-      }
-    };
-
-    const result = await callGemini(topic, systemPrompt, responseSchema);
-    res.json(result);
-  } catch (error) {
-    console.error('Flashcard generation error:', error);
-    res.status(500).json({ error: 'Failed to generate flashcards' });
-  }
-});
 
 // POST /api/ai/tutor-chat - Language tutor conversation
 router.post('/tutor-chat', authenticateUser, async (req, res) => {
