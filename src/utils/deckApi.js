@@ -14,10 +14,10 @@ export const deckApi = {
   },
 
   // Create a new deck
-  createDeck: async (userId, title, isPublic = false) => {
+  createDeck: async (userId, title, isPublic = false, language = 'de') => {
     const { data, error } = await supabase
       .from('decks')
-      .insert([{ user_id: userId, title, is_public: isPublic }])
+      .insert([{ user_id: userId, title, is_public: isPublic, language }])
       .select()
       .single();
     

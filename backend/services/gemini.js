@@ -4,7 +4,15 @@
  */
 export async function callGemini(prompt, systemInstruction, responseSchema = null, conversationHistory = []) {
   const apiKey = process.env.GEMINI_API_KEY;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+  
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not configured in backend/.env');
+  }
+  
+  console.log('Calling Gemini API...');
+  
+  // Use Gemini Flash 2.5
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
   const contents = conversationHistory.length > 0
     ? conversationHistory.map(msg => ({
@@ -29,17 +37,24 @@ export async function callGemini(prompt, systemInstruction, responseSchema = nul
     }
   };
 
+  console.log('Sending request to Gemini...');
+  
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
 
+  console.log('Gemini response status:', response.status);
+
   if (!response.ok) {
-    throw new Error(`Gemini API Error: ${response.status}`);
+    const errorBody = await response.text();
+    console.error('❌ Gemini API Error Response:', errorBody);
+    throw new Error(`Gemini API Error: ${response.status} - ${errorBody}`);
   }
 
   const data = await response.json();
+  console.log('✅ Gemini response received successfully');
   const textResult = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
   if (responseSchema) {

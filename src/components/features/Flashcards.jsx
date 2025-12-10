@@ -1,55 +1,195 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, ArrowRight, Plus, Sparkles, Loader2, Trash2, FolderOpen } from 'lucide-react';
+import { RefreshCw, ArrowRight, Plus, X, Loader2, Trash2, FolderOpen } from 'lucide-react';
 import Button from '../ui/Button';
-import { generateFlashcards } from '../../utils/geminiApi';
 import { cardApi } from '../../utils/deckApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { LANGUAGES } from '../../utils/constants';
 import { useTranslation } from '../../utils/translations';
 import DeckSelector from './DeckSelector';
-import { validateTopic } from '../../utils/inputValidation';
+import { validateFlashcardContent } from '../../utils/inputValidation';
+
+// Card Form Component
+const CardForm = ({ onSubmit, onCancel, isSaving, error }) => {
+    const [frontText, setFrontText] = useState('');
+    const [backText, setBackText] = useState('');
+    const [category, setCategory] = useState('');
+    const [example, setExample] = useState('');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSubmit(frontText, backText, category, example);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <form onSubmit={handleSubmit} className="w-full max-w-lg p-6 bg-white rounded-xl shadow-2xl">
+                <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-lg font-semibold text-slate-800">Create New Card</h4>
+                    <button type="button" onClick={onCancel} className="text-slate-400 hover:text-slate-600">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+            {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                    {error}
+                </div>
+            )}
+
+            <div className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Front (Question)</label>
+                    <input
+                        type="text"
+                        value={frontText}
+                        onChange={(e) => setFrontText(e.target.value)}
+                        placeholder="e.g., der Tisch"
+                        className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        required
+                        disabled={isSaving}
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Back (Answer)</label>
+                    <textarea
+                        value={backText}
+                        onChange={(e) => setBackText(e.target.value)}
+                        placeholder="e.g., the table"
+                        className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                        rows="3"
+                        required
+                        disabled={isSaving}
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Category (Optional)</label>
+                    <input
+                        type="text"
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        placeholder="e.g., Noun, Verb, Adjective"
+                        className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        disabled={isSaving}
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Usage Example (Optional)</label>
+                    <textarea
+                        value={example}
+                        onChange={(e) => setExample(e.target.value)}
+                        placeholder="e.g., Der Tisch ist groß. (The table is big.)"
+                        className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                        rows="2"
+                        disabled={isSaving}
+                    />
+                </div>
+
+                <div className="flex gap-2">
+                    <Button type="submit" variant="primary" className="flex-1" disabled={isSaving}>
+                        {isSaving ? (
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Saving...
+                            </>
+                        ) : (
+                            <>
+                                <Plus className="w-4 h-4" />
+                                Create
+                            </>
+                        )}
+                    </Button>
+                    <Button type="button" variant="secondary" onClick={onCancel} disabled={isSaving}>
+                        Cancel
+                    </Button>
+                </div>
+            </div>
+        </form>
+        </div>
+    );
+};
 
 const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
     const { user } = useAuth();
     const { t } = useTranslation(interfaceLanguage);
     const learningLangConfig = LANGUAGES.find(lang => lang.id === language) || LANGUAGES[1];
     const learningLangName = learningLangConfig.name;
-    
-    const interfaceLangConfig = LANGUAGES.find(lang => lang.id === interfaceLanguage);
-    const interfaceLangName = interfaceLangConfig ? interfaceLangConfig.name : 'English';
-    
-    const translationLang = language === interfaceLanguage ? 'en' : interfaceLanguage;
-    const translationLangName = language === interfaceLanguage ? 'English' : interfaceLangName;
 
     const [currentDeck, setCurrentDeck] = useState(null);
     const [showDeckSelector, setShowDeckSelector] = useState(false);
     const [cards, setCards] = useState([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
-    const [showGenerator, setShowGenerator] = useState(false);
-    const [topic, setTopic] = useState("");
-    const [isGenerating, setIsGenerating] = useState(false);
+    const [showCardForm, setShowCardForm] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState(null);
 
     const currentCard = cards[currentIndex];
 
     useEffect(() => {
-        // Show deck selector on mount if no deck selected
         if (!currentDeck) {
             setShowDeckSelector(true);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (currentDeck) {
+        } else {
             loadCards();
         }
     }, [currentDeck]);
 
-    const handleSelectDeck = (deck) => {
-        setCurrentDeck(deck);
-        setShowDeckSelector(false);
-    };
+    useEffect(() => {
+        const handleKeyPress = (e) => {
+            // Don't trigger shortcuts if user is typing in a form
+            if (showCardForm || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return;
+            }
+
+            switch(e.key) {
+                case 'ArrowUp':
+                    e.preventDefault(); // Prevent page scroll
+                    // Mark as correct and next card
+                    if (cards.length > 1 && currentCard) {
+                        recordReview(true);
+                        nextCard();
+                    }
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault(); // Prevent page scroll
+                    // Mark as wrong and next card
+                    if (cards.length > 1 && currentCard) {
+                        recordReview(false);
+                        nextCard();
+                    }
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault(); // Prevent page scroll
+                    // Next card without review
+                    if (cards.length > 1) {
+                        nextCard();
+                    }
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault(); // Prevent page scroll
+                    // Previous card
+                    if (cards.length > 1) {
+                        setIsFlipped(false);
+                        setTimeout(() => setCurrentIndex((prev) => (prev - 1 + cards.length) % cards.length), 200);
+                    }
+                    break;
+                case ' ':
+                case 'Enter':
+                    // Flip card
+                    e.preventDefault();
+                    setIsFlipped(!isFlipped);
+                    break;
+                default:
+                    break;
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyPress);
+        return () => window.removeEventListener('keydown', handleKeyPress);
+    }, [cards, currentCard, isFlipped, showCardForm]);
 
     const loadCards = async () => {
         if (!currentDeck) return;
@@ -60,12 +200,15 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
             setCards(data);
             setCurrentIndex(0);
         } catch (error) {
-            if (import.meta.env.DEV) {
-                console.error('Failed to load cards:', error);
-            }
+            console.error('Failed to load cards:', error);
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const handleSelectDeck = (deck) => {
+        setCurrentDeck(deck);
+        setShowDeckSelector(false);
     };
 
     const nextCard = () => {
@@ -73,67 +216,58 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
         setTimeout(() => setCurrentIndex((prev) => (prev + 1) % cards.length), 200);
     };
 
-    const generateCards = async () => {
-        // Validate topic input
-        const validation = validateTopic(topic);
-        if (!validation.valid) {
-            alert(validation.error);
+    const handleCreateCard = async (frontText, backText, category, example) => {
+        const frontValidation = validateFlashcardContent(frontText);
+        const backValidation = validateFlashcardContent(backText);
+        
+        if (!frontValidation.valid) {
+            setError(`Front: ${frontValidation.error}`);
+            return;
+        }
+        
+        if (!backValidation.valid) {
+            setError(`Back: ${backValidation.error}`);
             return;
         }
 
-        if (!currentDeck) return;
-        setIsGenerating(true);
+        setIsSaving(true);
+        setError(null);
 
         try {
-            const result = await generateFlashcards(
-                validation.sanitized,
-                learningLangName,
-                interfaceLangName,
-                translationLangName
+            // Format back text with category and example
+            let formattedBackText = backValidation.sanitized;
+            if (category) {
+                formattedBackText = `[${category}]\n\n${formattedBackText}`;
+            }
+            if (example) {
+                formattedBackText = `${formattedBackText}\n\nExample: ${example}`;
+            }
+
+            const newCard = await cardApi.createCard(
+                currentDeck.id,
+                frontValidation.sanitized,
+                formattedBackText
             );
-
-            const newCards = [];
-            for (const card of result.cards) {
-                const backContent = `${card.translation}\n\nExamples:\n${card.examples.map(ex => `• ${ex}`).join('\n')}`;
-                const newCard = await cardApi.createCard(
-                    currentDeck.id,
-                    card.front,
-                    backContent
-                );
-                newCards.push(newCard);
-            }
-
-            setCards([...cards, ...newCards]);
-            setTopic("");
-            setShowGenerator(false);
+            setCards([...cards, newCard]);
+            setShowCardForm(false);
         } catch (error) {
-            if (import.meta.env.DEV) {
-                console.error('Failed to generate cards:', error);
-            }
-            alert('Failed to generate flashcards. Please try again.');
+            console.error('Failed to create card:', error);
+            setError('Failed to create flashcard. Please try again.');
         } finally {
-            setIsGenerating(false);
+            setIsSaving(false);
         }
     };
 
     const deleteCurrentCard = async () => {
-        if (!currentCard || cards.length === 0) return;
-        if (!confirm('Are you sure you want to delete this card?')) return;
+        if (!currentCard || !confirm('Are you sure you want to delete this card?')) return;
 
         try {
             await cardApi.deleteCard(currentCard.id);
             const updatedCards = cards.filter(c => c.id !== currentCard.id);
             setCards(updatedCards);
-            
-            if (updatedCards.length === 0) {
-                setCurrentIndex(0);
-            } else {
-                setCurrentIndex(Math.min(currentIndex, updatedCards.length - 1));
-            }
+            setCurrentIndex(updatedCards.length === 0 ? 0 : Math.min(currentIndex, updatedCards.length - 1));
         } catch (error) {
-            if (import.meta.env.DEV) {
-                console.error('Failed to delete card:', error);
-            }
+            console.error('Failed to delete card:', error);
             alert('Failed to delete card');
         }
     };
@@ -146,9 +280,7 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
                 next_review_at: new Date(Date.now() + 86400000 * (quality ? 3 : 1)).toISOString(),
             });
         } catch (error) {
-            if (import.meta.env.DEV) {
-                console.error('Failed to record review:', error);
-            }
+            console.error('Failed to record review:', error);
         }
     };
 
@@ -157,6 +289,7 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
             <DeckSelector
                 onSelectDeck={handleSelectDeck}
                 onClose={() => setShowDeckSelector(false)}
+                language={language}
             />
         );
     }
@@ -195,38 +328,25 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
                         <Plus className="w-12 h-12 text-indigo-600" />
                     </div>
                     <h3 className="text-2xl font-bold text-slate-800 mb-2">No Cards Yet</h3>
-                    <p className="text-slate-600 mb-6">
-                        Add your first card to <strong>{currentDeck.title}</strong>
-                    </p>
-                    <div className="flex gap-3 justify-center">
-                        <Button variant="primary" onClick={() => setShowGenerator(true)}>
-                            <Sparkles className="w-4 h-4" />
-                            Generate Card
-                        </Button>
-                        <Button variant="secondary" onClick={() => setShowDeckSelector(true)}>
-                            Change Deck
-                        </Button>
-                    </div>
-
-                    {showGenerator && (
-                        <div className="mt-6 p-4 bg-indigo-50 rounded-xl">
-                            <div className="flex gap-2">
-                                <input
-                                    value={topic}
-                                    onChange={(e) => setTopic(e.target.value)}
-                                    placeholder={t('enterWord')}
-                                    className="flex-1 px-4 py-2 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    autoFocus
-                                />
-                                <Button
-                                    variant="magic"
-                                    onClick={generateCards}
-                                    disabled={isGenerating}
-                                >
-                                    {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                                </Button>
-                            </div>
+                    <p className="text-slate-600 mb-6">Create your first card for <strong>{currentDeck.title}</strong></p>
+                    
+                    {!showCardForm ? (
+                        <div className="flex gap-3 justify-center">
+                            <Button variant="primary" onClick={() => setShowCardForm(true)}>
+                                <Plus className="w-4 h-4" />
+                                Create Card
+                            </Button>
+                            <Button variant="secondary" onClick={() => setShowDeckSelector(true)}>
+                                Change Deck
+                            </Button>
                         </div>
+                    ) : (
+                        <CardForm 
+                            onSubmit={handleCreateCard}
+                            onCancel={() => setShowCardForm(false)}
+                            isSaving={isSaving}
+                            error={error}
+                        />
                     )}
                 </div>
             </div>
@@ -234,89 +354,140 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
     }
 
     return (
-        <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto py-6">
-            <div className="w-full flex justify-between items-center mb-6">
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-800">{currentDeck.title}</h2>
-                    <p className="text-sm text-slate-500">{t('language')}: {learningLangName}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-slate-500">{currentIndex + 1} / {cards.length}</span>
-                    <Button variant="secondary" onClick={() => setShowDeckSelector(true)} className="text-sm">
-                        <FolderOpen className="w-4 h-4" />
-                    </Button>
-                    <Button variant="secondary" onClick={() => setShowGenerator(!showGenerator)}>
-                        <Plus className="w-4 h-4" />
-                    </Button>
-                    <Button variant="secondary" onClick={deleteCurrentCard}>
-                        <Trash2 className="w-4 h-4" />
-                    </Button>
-                </div>
-            </div>
-
-            {showGenerator && (
-                <div className="w-full p-4 mb-6 bg-indigo-50 rounded-xl animate-in slide-in-from-top-4 fade-in">
-                    <div className="flex gap-2">
-                        <input
-                            value={topic}
-                            onChange={(e) => setTopic(e.target.value)}
-                            placeholder={t('enterWord')}
-                            className="flex-1 px-4 py-2 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                        <Button
-                            variant="magic"
-                            onClick={generateCards}
-                            disabled={isGenerating}
-                        >
-                            {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+        <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 to-slate-100">
+            {/* Modern Header */}
+            <div className="w-full px-8 py-6 bg-white/80 backdrop-blur-sm border-b border-slate-200">
+                <div className="max-w-7xl mx-auto flex justify-between items-center">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+                            <span className="text-2xl">🎴</span>
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-900">{currentDeck.title}</h2>
+                            <p className="text-sm text-slate-500">{learningLangName} • {currentIndex + 1} of {cards.length}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Button variant="secondary" onClick={() => setShowDeckSelector(true)} className="gap-2">
+                            <FolderOpen className="w-4 h-4" />
+                            Change Deck
+                        </Button>
+                        <Button variant="primary" onClick={() => setShowCardForm(!showCardForm)} className="gap-2">
+                            <Plus className="w-4 h-4" />
+                            Add Card
+                        </Button>
+                        <Button variant="secondary" onClick={deleteCurrentCard} className="text-red-600 hover:bg-red-50">
+                            <Trash2 className="w-4 h-4" />
                         </Button>
                     </div>
                 </div>
+            </div>
+
+            {showCardForm && (
+                <CardForm 
+                    onSubmit={handleCreateCard}
+                    onCancel={() => setShowCardForm(false)}
+                    isSaving={isSaving}
+                    error={error}
+                />
             )}
 
-            {currentCard && (
-                <div
-                    className="relative w-full aspect-[3/2] cursor-pointer perspective-1000 group"
-                    onClick={() => setIsFlipped(!isFlipped)}
-                >
-                    <div className={`w-full h-full relative preserve-3d transition-transform duration-500 ${isFlipped ? 'rotate-y-180' : ''}`}>
-                        {/* Front */}
-                        <div className="absolute inset-0 bg-white rounded-2xl shadow-xl flex flex-col items-center justify-center p-8 backface-hidden">
-                            <div className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-4">{t('germanWord')}</div>
-                            <h3 className="text-4xl font-serif text-slate-800 text-center">{currentCard.front_text}</h3>
-                            <p className="mt-8 text-slate-400 text-sm flex items-center gap-2">
-                                <RefreshCw size={14} /> {t('tapToFlip')}
-                            </p>
-                        </div>
+            {/* Main Content Area */}
+            <div className="flex-1 flex items-center justify-center px-8 py-12">
+                <div className="w-full max-w-5xl">
+                    {/* Flashcard */}
+                    {currentCard && (
+                        <div className="mb-10">
+                            <div
+                                className="relative w-full max-w-3xl mx-auto aspect-[16/10] cursor-pointer perspective-1000"
+                                onClick={() => setIsFlipped(!isFlipped)}
+                            >
+                                <div className={`w-full h-full relative preserve-3d transition-all duration-700 ${isFlipped ? 'rotate-y-180' : ''}`}>
+                                    {/* Front Side */}
+                                    <div className="absolute inset-0 bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col items-center justify-center p-12 backface-hidden hover:shadow-3xl transition-shadow">
+                                        <div className="absolute top-6 left-6">
+                                            <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full uppercase tracking-wide">
+                                                {t('germanWord')}
+                                            </span>
+                                        </div>
+                                        <h1 className="text-6xl font-serif text-slate-900 text-center mb-4">{currentCard.front_text}</h1>
+                                        <div className="absolute bottom-6 flex items-center gap-2 text-slate-400 text-sm">
+                                            <RefreshCw size={16} className="animate-spin-slow" />
+                                            <span>{t('tapToFlip')}</span>
+                                        </div>
+                                    </div>
 
-                        {/* Back */}
-                        <div className="absolute inset-0 bg-indigo-600 rounded-2xl shadow-xl flex flex-col justify-center p-8 backface-hidden rotate-y-180">
-                            <div className="text-xs font-bold text-indigo-200 uppercase tracking-widest mb-3">{t('translation')}</div>
-                            <div className="text-white whitespace-pre-line">
-                                {currentCard.back_text}
+                                    {/* Back Side */}
+                                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl shadow-2xl flex flex-col justify-center p-12 backface-hidden rotate-y-180">
+                                        <div className="absolute top-6 left-6">
+                                            <span className="px-3 py-1 bg-white/20 text-white text-xs font-semibold rounded-full uppercase tracking-wide">
+                                                {t('translation')}
+                                            </span>
+                                        </div>
+                                        <div className="text-white text-3xl font-medium leading-relaxed whitespace-pre-line">
+                                            {currentCard.back_text}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center justify-center gap-4">
+                        <Button 
+                            variant="secondary" 
+                            onClick={() => { recordReview(false); nextCard(); }}
+                            disabled={cards.length === 1}
+                            className="px-8 py-4 text-base gap-3 bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
+                        >
+                            <X size={20} className="font-bold" />
+                            I don't know
+                        </Button>
+                        
+                        <Button 
+                            variant="secondary" 
+                            onClick={() => setIsFlipped(!isFlipped)}
+                            className="px-8 py-4 text-base gap-3"
+                        >
+                            <RefreshCw size={20} />
+                            Flip Card
+                        </Button>
+
+                        <Button 
+                            variant="primary" 
+                            onClick={() => { recordReview(true); nextCard(); }} 
+                            disabled={cards.length === 1}
+                            className="px-8 py-4 text-base gap-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                        >
+                            <span className="text-xl">✓</span>
+                            I know this
+                        </Button>
+                    </div>
+
+                    {/* Keyboard Shortcuts - Bottom Center */}
+                    <div className="mt-12 flex justify-center">
+                        <div className="inline-flex items-center gap-6 px-6 py-3 bg-white/60 backdrop-blur-sm rounded-2xl border border-slate-200 shadow-sm">
+                            <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Shortcuts:</span>
+                            <div className="flex items-center gap-4 text-sm text-slate-700">
+                                <div className="flex items-center gap-2">
+                                    <kbd className="px-2 py-1 bg-white rounded border border-slate-300 shadow-sm font-mono text-xs">↑</kbd>
+                                    <span className="text-xs">Correct</span>
+                                </div>
+                                <div className="w-px h-4 bg-slate-300"></div>
+                                <div className="flex items-center gap-2">
+                                    <kbd className="px-2 py-1 bg-white rounded border border-slate-300 shadow-sm font-mono text-xs">↓</kbd>
+                                    <span className="text-xs">Wrong</span>
+                                </div>
+                                <div className="w-px h-4 bg-slate-300"></div>
+                                <div className="flex items-center gap-2">
+                                    <kbd className="px-2 py-1 bg-white rounded border border-slate-300 shadow-sm font-mono text-xs">Space</kbd>
+                                    <span className="text-xs">Flip</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            )}
-
-            <div className="flex gap-4 mt-8">
-                <Button variant="secondary" onClick={() => setIsFlipped(!isFlipped)}>{t('flipCard')}</Button>
-                <Button 
-                    variant="secondary" 
-                    onClick={() => { recordReview(false); nextCard(); }}
-                    disabled={cards.length === 1}
-                >
-                    ❌ {t('wrong')}
-                </Button>
-                <Button 
-                    variant="primary" 
-                    onClick={() => { recordReview(true); nextCard(); }} 
-                    icon={ArrowRight}
-                    disabled={cards.length === 1}
-                >
-                    ✓ {t('correct')}
-                </Button>
             </div>
         </div>
     );

@@ -50,7 +50,9 @@ const callBackendAI = async (endpoint, payload) => {
   });
 
   if (!response.ok) {
-    throw new Error(`API Error: ${response.status}`);
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage = errorData.details || errorData.error || `API Error: ${response.status}`;
+    throw new Error(errorMessage);
   }
 
   return await response.json();

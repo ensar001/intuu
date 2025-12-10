@@ -62,8 +62,12 @@ router.post('/analyze-text', authenticateUser, async (req, res) => {
     const result = await callGemini(text, systemPrompt, responseSchema);
     res.json(result);
   } catch (error) {
-    console.error('Text analysis error:', error);
-    res.status(500).json({ error: 'Failed to analyze text' });
+    console.error('Text analysis error:', error.message);
+    console.error('Error details:', error);
+    res.status(500).json({ 
+      error: 'Failed to analyze text',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

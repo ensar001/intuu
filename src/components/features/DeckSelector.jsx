@@ -5,7 +5,7 @@ import Card from '../ui/Card';
 import { deckApi } from '../../utils/deckApi';
 import { useAuth } from '../../contexts/AuthContext';
 
-export default function DeckSelector({ onSelectDeck, onClose }) {
+export default function DeckSelector({ onSelectDeck, onClose, language = 'de' }) {
   const { user } = useAuth();
   const [decks, setDecks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,13 +17,17 @@ export default function DeckSelector({ onSelectDeck, onClose }) {
 
   useEffect(() => {
     loadDecks();
-  }, []);
+  }, [language]);
 
   const loadDecks = async () => {
     try {
       setLoading(true);
       const data = await deckApi.getDecks(user.id);
-      setDecks(data);
+      // Filter decks by language
+      const filteredDecks = data.filter(deck => 
+        !deck.language || deck.language === language
+      );
+      setDecks(filteredDecks);
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to load decks:', err);
@@ -45,7 +49,7 @@ export default function DeckSelector({ onSelectDeck, onClose }) {
     try {
       setCreating(true);
       setError('');
-      const newDeck = await deckApi.createDeck(user.id, newDeckTitle.trim(), newDeckPublic);
+      const newDeck = await deckApi.createDeck(user.id, newDeckTitle.trim(), newDeckPublic, language);
       setDecks([...decks, newDeck]);
       setNewDeckTitle('');
       setNewDeckPublic(false);

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Zap, Sparkles, Loader2 } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
-import { analyzeText } from '../../utils/geminiApi';
+import { analyzeText as analyzeTextAPI } from '../../utils/geminiApi';
 import { LANGUAGES } from '../../utils/constants';
 import { useTranslation } from '../../utils/translations';
 import { validateAnalysisText } from '../../utils/inputValidation';
@@ -27,6 +27,7 @@ const TextAnalyzer = ({ currentLanguage = 'de', interfaceLanguage = 'en' }) => {
   const [analysis, setAnalysis] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState('b1');
+  const [error, setError] = useState(null);
 
   const levels = [
     { id: 'a2', label: 'A2', color: 'bg-green-100 text-green-700 border-green-200' },
@@ -36,18 +37,19 @@ const TextAnalyzer = ({ currentLanguage = 'de', interfaceLanguage = 'en' }) => {
     { id: 'c2', label: 'C2', color: 'bg-pink-100 text-pink-700 border-pink-200' }
   ];
 
-  const analyzeText = async () => {
+  const handleAnalyze = async () => {
     // Validate input
     const validation = validateAnalysisText(text);
     if (!validation.valid) {
-      alert(validation.error);
+      setError(validation.error);
       return;
     }
 
     setIsAnalyzing(true);
+    setError(null);
 
     try {
-      const result = await analyzeText(
+      const result = await analyzeTextAPI(
         validation.sanitized,
         selectedLevel,
         languageName,
@@ -56,12 +58,13 @@ const TextAnalyzer = ({ currentLanguage = 'de', interfaceLanguage = 'en' }) => {
       );
       setAnalysis(result.sentences);
     } catch (error) {
-      alert("Failed to analyze text. Please try again.");
+      console.error('Text analysis error:', error);
+      const errorMessage = error.message || "Failed to analyze text.";
+      setError(errorMessage + " Make sure the backend server is running on port 3001.");
     } finally {
       setIsAnalyzing(false);
     }
   };
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -75,6 +78,24 @@ const TextAnalyzer = ({ currentLanguage = 'de', interfaceLanguage = 'en' }) => {
         </div>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-start gap-3">
+          <span className="text-xl">⚠️</span>
+          <div className="flex-1">
+            <p className="font-medium">Error</p>
+            <p className="text-sm mt-1">{error}</p>
+          </div>
+          <button 
+            onClick={() => setError(null)} 
+            className="text-red-500 hover:text-red-700 text-xl leading-none"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Level Selection */}
       {/* Level Selection */}
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -105,7 +126,7 @@ const TextAnalyzer = ({ currentLanguage = 'de', interfaceLanguage = 'en' }) => {
             placeholder="Schreiben Sie hier Ihren deutschen Text..."
           />
           <div className="pt-4 border-t border-slate-100 flex justify-end">
-            <Button onClick={analyzeText} icon={isAnalyzing ? Loader2 : Sparkles} variant="magic" disabled={isAnalyzing}>
+            <Button onClick={handleAnalyze} icon={isAnalyzing ? Loader2 : Sparkles} variant="magic" disabled={isAnalyzing}>
               {isAnalyzing ? 'Analyzing...' : 'Analyze Grammar ✨'}
             </Button>
           </div>
