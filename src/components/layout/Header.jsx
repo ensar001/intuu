@@ -1,7 +1,7 @@
 import { Menu, Search, Globe } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { useState } from 'react';
-import { GermanFlag, USFlag } from '../ui/flags';
+import { GermanFlag, USFlag, TurkishFlag } from '../ui/flags';
 
 const Header = ({ setIsSidebarOpen, interfaceLanguage, setInterfaceLanguage }) => {
   const location = useLocation();
@@ -10,7 +10,7 @@ const Header = ({ setIsSidebarOpen, interfaceLanguage, setInterfaceLanguage }) =
   const interfaceLanguages = [
     { code: 'en', name: 'English', flag: <USFlag /> },
     { code: 'de', name: 'Deutsch', flag: <GermanFlag /> },
-    { code: 'tr', name: 'Türkçe', flag: '🇹🇷' },
+    { code: 'tr', name: 'Türkçe', flag: <TurkishFlag /> },
   ];
 
   const currentInterfaceLang = interfaceLanguages.find(lang => lang.code === interfaceLanguage) || interfaceLanguages[0];
