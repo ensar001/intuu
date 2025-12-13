@@ -8,6 +8,7 @@ import { useTranslation } from '../../utils/translations';
 import DeckSelector from './DeckSelector';
 import { validateFlashcardContent } from '../../utils/inputValidation';
 import { useUserStats } from '../../hooks/useUserStats';
+import { GermanFlag, USFlag } from '../ui/flags';
 
 // Card Form Component
 const CardForm = ({ onSubmit, onCancel, isSaving, error }) => {
@@ -436,44 +437,44 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
 
     return (
         <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 to-slate-100">
-            {/* Modern Header */}
-            <div className="w-full px-8 py-6 bg-white/80 backdrop-blur-sm border-b border-slate-200">
-                <div className="max-w-7xl mx-auto flex justify-between items-center">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
-                            <span className="text-2xl">🎴</span>
+            
+                        <div className="w-full px-8 py-6 bg-white/80 backdrop-blur-sm border-b border-slate-200">
+                            <div className="max-w-7xl mx-auto flex justify-between items-center">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+                                        <span className="text-2xl">{language === 'de' ? <GermanFlag/> : <USFlag/>}</span>
+                                    </div>
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-slate-900">{currentDeck.title}</h2>
+                                        <p className="text-sm text-slate-500">{learningLangName} • {currentIndex + 1} of {cards.length}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <Button variant="secondary" onClick={() => setShowDeckSelector(true)} className="gap-2">
+                                        <FolderOpen className="w-4 h-4" />
+                                        Change Deck
+                                    </Button>
+                                    <Button variant="primary" onClick={() => setShowCardForm(!showCardForm)} className="gap-2">
+                                        <Plus className="w-4 h-4" />
+                                        Add Card
+                                    </Button>
+                                    <Button variant="secondary" onClick={deleteCurrentCard} className="text-red-600 hover:bg-red-50">
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="text-2xl font-bold text-slate-900">{currentDeck.title}</h2>
-                            <p className="text-sm text-slate-500">{learningLangName} • {currentIndex + 1} of {cards.length}</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <Button variant="secondary" onClick={() => setShowDeckSelector(true)} className="gap-2">
-                            <FolderOpen className="w-4 h-4" />
-                            Change Deck
-                        </Button>
-                        <Button variant="primary" onClick={() => setShowCardForm(!showCardForm)} className="gap-2">
-                            <Plus className="w-4 h-4" />
-                            Add Card
-                        </Button>
-                        <Button variant="secondary" onClick={deleteCurrentCard} className="text-red-600 hover:bg-red-50">
-                            <Trash2 className="w-4 h-4" />
-                        </Button>
-                    </div>
-                </div>
-            </div>
 
-            {showCardForm && (
-                <CardForm 
-                    onSubmit={handleCreateCard}
-                    onCancel={() => setShowCardForm(false)}
-                    isSaving={isSaving}
-                    error={error}
-                />
-            )}
+                        {showCardForm && (
+                            <CardForm 
+                                onSubmit={handleCreateCard}
+                                onCancel={() => setShowCardForm(false)}
+                                isSaving={isSaving}
+                                error={error}
+                            />
+                        )}
 
-            {/* Main Content Area */}
+                        {/* Main Content Area */}
             <div className="flex-1 flex items-center justify-center px-8 py-12">
                 <div className="w-full max-w-5xl">
                     {/* Flashcard */}

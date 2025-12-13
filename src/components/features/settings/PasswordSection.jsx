@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import Button from '../../ui/Button';
 import Card from '../../ui/Card';
+import MessageAlert from './MessageAlert';
 import { supabase } from '../../../utils/supabaseClient';
 
 export default function PasswordSection({ user, onMessage, loading, setLoading }) {
@@ -11,6 +12,7 @@ export default function PasswordSection({ user, onMessage, loading, setLoading }
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [localMessage, setLocalMessage] = useState({ type: '', text: '' });
 
   const validatePassword = (password) => {
     const minLength = 12;
@@ -42,29 +44,29 @@ export default function PasswordSection({ user, onMessage, loading, setLoading }
     e.preventDefault();
 
     if (!currentPassword) {
-      onMessage({ type: 'error', text: 'Current password is required' });
+      setLocalMessage({ type: 'error', text: 'Current password is required' });
       return;
     }
 
     if (!newPassword || !confirmPassword) {
-      onMessage({ type: 'error', text: 'Please fill in all password fields' });
+      setLocalMessage({ type: 'error', text: 'Please fill in all password fields' });
       return;
     }
 
     const passwordError = validatePassword(newPassword);
     if (passwordError) {
-      onMessage({ type: 'error', text: passwordError });
+      setLocalMessage({ type: 'error', text: passwordError });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      onMessage({ type: 'error', text: 'Passwords do not match' });
+      setLocalMessage({ type: 'error', text: 'Passwords do not match' });
       return;
     }
 
     try {
       setLoading(true);
-      onMessage({ type: '', text: '' });
+      setLocalMessage({ type: '', text: '' });
 
       // Verify current password by re-authenticating
       const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -73,7 +75,7 @@ export default function PasswordSection({ user, onMessage, loading, setLoading }
       });
 
       if (signInError) {
-        onMessage({ type: 'error', text: 'Current password is incorrect' });
+        setLocalMessage({ type: 'error', text: 'Current password is incorrect' });
         setLoading(false);
         return;
       }
@@ -85,12 +87,12 @@ export default function PasswordSection({ user, onMessage, loading, setLoading }
 
       if (error) throw error;
 
-      onMessage({ type: 'success', text: 'Password changed successfully!' });
+      setLocalMessage({ type: 'success', text: 'Password changed successfully!' });
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err) {
-      onMessage({ type: 'error', text: err.message || 'Failed to change password' });
+      setLocalMessage({ type: 'error', text: err.message || 'Failed to change password' });
     } finally {
       setLoading(false);
     }
@@ -103,6 +105,8 @@ export default function PasswordSection({ user, onMessage, loading, setLoading }
           <Lock className="w-5 h-5 text-indigo-600" />
           Change Password
         </h2>
+        
+        <MessageAlert message={localMessage} />
         
         <form onSubmit={handleChangePassword} className="space-y-4">
           <div>
