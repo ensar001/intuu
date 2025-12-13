@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, ArrowRight, Plus, X, Loader2, Trash2, FolderOpen } from 'lucide-react';
+import { RefreshCw, ArrowRight, Plus, X, Loader2, Trash2, FolderOpen, RotateCcw } from 'lucide-react';
 import Button from '../ui/Button';
 import { cardApi } from '../../utils/deckApi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -7,6 +7,7 @@ import { LANGUAGES } from '../../utils/constants';
 import { useTranslation } from '../../utils/translations';
 import DeckSelector from './DeckSelector';
 import { validateFlashcardContent } from '../../utils/inputValidation';
+import { useUserStats } from '../../hooks/useUserStats';
 
 // Card Form Component
 const CardForm = ({ onSubmit, onCancel, isSaving, error }) => {
@@ -114,6 +115,7 @@ const CardForm = ({ onSubmit, onCancel, isSaving, error }) => {
 const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
     const { user } = useAuth();
     const { t } = useTranslation(interfaceLanguage);
+    const { learnWord, recordActivity, updateWeeklyGoal } = useUserStats();
     const learningLangConfig = LANGUAGES.find(lang => lang.id === language) || LANGUAGES[1];
     const learningLangName = learningLangConfig.name;
 
@@ -126,6 +128,7 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState(null);
+    const [reviewMode, setReviewMode] = useState(false); // New: review mode flag
 
     const currentCard = cards[currentIndex];
 
@@ -199,6 +202,7 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
             const data = await cardApi.getCards(currentDeck.id);
             setCards(data);
             setCurrentIndex(0);
+            setReviewMode(false);
         } catch (error) {
             console.error('Failed to load cards:', error);
         } finally {
@@ -206,9 +210,44 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
         }
     };
 
-    const handleSelectDeck = (deck) => {
+    // New: Load cards in spaced repetition order
+    const loadReviewMode = async () => {
+        if (!currentDeck) return;
+        
+        setIsLoading(true);
+        try {
+            const data = await cardApi.getCards(currentDeck.id);
+            
+            // Sort by spaced repetition algorithm
+            // Priority: 1) Don't know (mastery 0), 2) Learning (mastery 1), 3) Familiar (mastery 2), 4) Known (mastery 3)
+            // Within each group, sort by next_review_at (due cards first)
+            const sortedCards = data.sort((a, b) => {
+                // First, sort by mastery level
+                if (a.mastery_level !== b.mastery_level) {
+                    return a.mastery_level - b.mastery_level;
+                }
+                // Then by review date (earlier dates first)
+                return new Date(a.next_review_at) - new Date(b.next_review_at);
+            });
+            
+            setCards(sortedCards);
+            setCurrentIndex(0);
+            setReviewMode(true);
+        } catch (error) {
+            console.error('Failed to load cards for review:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSelectDeck = (deck, isReviewMode = false) => {
         setCurrentDeck(deck);
         setShowDeckSelector(false);
+        
+        // Load cards in review mode or normal mode
+        if (isReviewMode) {
+            setTimeout(() => loadReviewMode(), 100);
+        }
     };
 
     const nextCard = () => {
@@ -276,9 +315,51 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
         if (!currentCard) return;
         
         try {
+            // Update card mastery and spaced repetition data
+            const newMasteryLevel = quality ? Math.min((currentCard.mastery_level || 0) + 1, 3) : 0;
+            const timesCorrect = quality ? (currentCard.times_correct || 0) + 1 : currentCard.times_correct || 0;
+            const timesIncorrect = !quality ? (currentCard.times_incorrect || 0) + 1 : currentCard.times_incorrect || 0;
+            
+            // Calculate next review using SM-2 algorithm
+            const reviewData = cardApi.calculateNextReview(
+                quality ? 4 : 2, // quality 0-5
+                currentCard.interval || 1,
+                currentCard.ease_factor || 2.5
+            );
+
             await cardApi.updateCard(currentCard.id, {
-                next_review_at: new Date(Date.now() + 86400000 * (quality ? 3 : 1)).toISOString(),
+                mastery_level: newMasteryLevel,
+                times_correct: timesCorrect,
+                times_incorrect: timesIncorrect,
+                next_review_at: reviewData.nextReviewAt,
+                interval: reviewData.interval,
+                ease_factor: reviewData.easeFactor
             });
+
+            // Track word learning in user stats
+            if (quality && user) {
+                await learnWord(
+                    currentCard.front_text,
+                    language,
+                    currentCard.id,
+                    newMasteryLevel
+                );
+                
+                // Update weekly goal if goal type is words
+                await updateWeeklyGoal(1);
+                
+                // Record flashcard activity
+                await recordActivity('flashcard_reviews', 1);
+            }
+
+            // Update local card state
+            const updatedCards = cards.map(c => 
+                c.id === currentCard.id 
+                    ? { ...c, mastery_level: newMasteryLevel, times_correct: timesCorrect, times_incorrect: timesIncorrect }
+                    : c
+            );
+            setCards(updatedCards);
+
         } catch (error) {
             console.error('Failed to record review:', error);
         }
@@ -418,13 +499,13 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
                                     </div>
 
                                     {/* Back Side */}
-                                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl shadow-2xl flex flex-col justify-center p-12 backface-hidden rotate-y-180">
-                                        <div className="absolute top-6 left-6">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl shadow-2xl flex flex-col p-12 backface-hidden rotate-y-180 overflow-hidden">
+                                        <div className="mb-4 flex-shrink-0">
                                             <span className="px-3 py-1 bg-white/20 text-white text-xs font-semibold rounded-full uppercase tracking-wide">
                                                 {t('translation')}
                                             </span>
                                         </div>
-                                        <div className="text-white text-3xl font-medium leading-relaxed whitespace-pre-line">
+                                        <div className="flex-1 overflow-y-auto text-white text-2xl font-medium leading-relaxed whitespace-pre-line [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                                             {currentCard.back_text}
                                         </div>
                                     </div>

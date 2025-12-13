@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Eye, Lock, Globe, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, Eye, Lock, Globe, ChevronRight, RotateCcw } from 'lucide-react';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { deckApi } from '../../utils/deckApi';
 import { useAuth } from '../../contexts/AuthContext';
 
-export default function DeckSelector({ onSelectDeck, onClose, language = 'de' }) {
+export default function DeckSelector({ onSelectDeck, onClose, language = 'de', onReviewMode }) {
   const { user } = useAuth();
   const [decks, setDecks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -139,33 +139,45 @@ export default function DeckSelector({ onSelectDeck, onClose, language = 'de' })
                 {decks.map((deck) => (
                   <div
                     key={deck.id}
-                    onClick={() => onSelectDeck(deck)}
-                    className="group p-4 border-2 border-slate-200 rounded-xl hover:border-indigo-400 hover:bg-indigo-50/50 transition-all cursor-pointer flex items-center justify-between"
+                    className="group p-4 border-2 border-slate-200 rounded-xl hover:border-indigo-400 hover:bg-indigo-50/50 transition-all"
                   >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-slate-900 group-hover:text-indigo-600">
-                          {deck.title}
-                        </h3>
-                        {deck.is_public ? (
-                          <Globe className="w-4 h-4 text-green-600" title="Public deck" />
-                        ) : (
-                          <Lock className="w-4 h-4 text-slate-400" title="Private deck" />
-                        )}
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 cursor-pointer" onClick={() => onSelectDeck(deck, false)}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-slate-900 group-hover:text-indigo-600">
+                            {deck.title}
+                          </h3>
+                          {deck.is_public ? (
+                            <Globe className="w-4 h-4 text-green-600" title="Public deck" />
+                          ) : (
+                            <Lock className="w-4 h-4 text-slate-400" title="Private deck" />
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-500">
+                          Created {new Date(deck.created_at).toLocaleDateString()}
+                        </p>
                       </div>
-                      <p className="text-sm text-slate-500">
-                        Created {new Date(deck.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => handleDeleteDeck(deck.id, e)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete deck"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectDeck(deck, true);
+                          }}
+                          className="px-3 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                          title="Review with spaced repetition"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          Review
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteDeck(deck.id, e)}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete deck"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 transition-colors cursor-pointer" onClick={() => onSelectDeck(deck, false)} />
+                      </div>
                     </div>
                   </div>
                 ))}

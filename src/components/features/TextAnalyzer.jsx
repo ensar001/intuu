@@ -6,8 +6,10 @@ import { analyzeText as analyzeTextAPI } from '../../utils/geminiApi';
 import { LANGUAGES } from '../../utils/constants';
 import { useTranslation } from '../../utils/translations';
 import { validateAnalysisText } from '../../utils/inputValidation';
+import { useUserStats } from '../../hooks/useUserStats';
 
 const TextAnalyzer = ({ currentLanguage = 'de', interfaceLanguage = 'en' }) => {
+  const { recordActivity, updateWeeklyGoal } = useUserStats();
   const languageConfig = LANGUAGES.find(lang => lang.id === currentLanguage) || LANGUAGES[1];
   const languageName = languageConfig.name;
   const { t } = useTranslation(interfaceLanguage);
@@ -57,6 +59,10 @@ const TextAnalyzer = ({ currentLanguage = 'de', interfaceLanguage = 'en' }) => {
         shouldTranslate
       );
       setAnalysis(result.sentences);
+      
+      // Track activity and update weekly goal
+      await recordActivity('analyzer_uses', 1);
+      await updateWeeklyGoal(1);
     } catch (error) {
       console.error('Text analysis error:', error);
       const errorMessage = error.message || "Failed to analyze text.";

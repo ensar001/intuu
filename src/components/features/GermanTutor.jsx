@@ -5,8 +5,10 @@ import Button from '../ui/Button';
 import { tutorChat } from '../../utils/geminiApi';
 import { LANGUAGES } from '../../utils/constants';
 import { validateAnalysisText } from '../../utils/inputValidation';
+import { useUserStats } from '../../hooks/useUserStats';
 
-const GermanTutor = ({ currentLanguage = 'de' }) => {
+const GermanTutor = ({ currentLanguage = 'de', interfaceLanguage = 'en' }) => {
+  const { recordActivity } = useUserStats();
   const languageConfig = LANGUAGES.find(lang => lang.id === currentLanguage) || LANGUAGES[1];
   const languageName = languageConfig.name;
   
@@ -59,6 +61,9 @@ const GermanTutor = ({ currentLanguage = 'de' }) => {
         improved: response.improved
       };
       setMessages(prev => [...prev, botMsg]);
+      
+      // Track tutor interaction
+      await recordActivity('tutor_interactions', 1);
     } catch (error) {
       setMessages(prev => [...prev, { id: Date.now(), role: 'bot', text: "Sorry, I'm having trouble connecting right now." }]);
     } finally {

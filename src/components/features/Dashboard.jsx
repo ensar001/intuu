@@ -1,12 +1,33 @@
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, Brain, Award, ChevronRight, MessageSquare, Headphones, BookText, PenTool, Mic, GraduationCap } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { CheckCircle, Brain, Award, ChevronRight, MessageSquare, Headphones, BookText, PenTool, Mic, GraduationCap, Flame } from 'lucide-react';
 import Card from '../ui/Card';
 import { LANGUAGES } from '../../utils/constants';
 import { useTranslation } from '../../utils/translations';
+import { useUserStats } from '../../hooks/useUserStats';
+import { useAuth } from '../../contexts/AuthContext';
+import { userStatsApi } from '../../utils/userStatsApi';
 
 const Dashboard = ({ currentLanguage, setLanguage, interfaceLanguage = 'en' }) => {
   const navigate = useNavigate();
   const { t } = useTranslation(interfaceLanguage);
+  const { user } = useAuth();
+  const { stats, loading, learningLevel, weeklyGoalProgress } = useUserStats();
+  const [recentWords, setRecentWords] = useState([]);
+
+  useEffect(() => {
+    const loadRecentWords = async () => {
+      if (user) {
+        try {
+          const words = await userStatsApi.getLearnedWords(user.id, currentLanguage, 5);
+          setRecentWords(words);
+        } catch (err) {
+          console.error('Failed to load recent words:', err);
+        }
+      }
+    };
+    loadRecentWords();
+  }, [user, currentLanguage]);
 
   const courseCards = [
     { id: 'listening', label: t('listening'), icon: Headphones, path: '/courses/listening', color: 'from-blue-500 to-cyan-500', emoji: '🎧' },
@@ -20,8 +41,20 @@ const Dashboard = ({ currentLanguage, setLanguage, interfaceLanguage = 'en' }) =
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">{t('welcomeBack')}, Ensar!</h1>
-          <p className="text-slate-500 mt-1">{t('dayStreak', { days: 12 })}</p>
+          <h1 className="text-3xl font-bold text-slate-900">{t('welcomeBack')}, {user?.email?.split('@')[0] || 'Student'}!</h1>
+          <div className="flex items-center gap-2 mt-1">
+            {stats && stats.current_streak > 0 && (
+              <>
+                <Flame className="w-5 h-5 text-orange-500" />
+                <p className="text-slate-500">
+                  You're on a <span className="font-bold text-orange-600">{stats.current_streak}</span>-day streak! 🔥
+                </p>
+              </>
+            )}
+            {(!stats || stats.current_streak === 0) && (
+              <p className="text-slate-500">Start your learning streak today!</p>
+            )}
+          </div>
         </div>
         <div className="flex gap-2">
            {LANGUAGES.map(lang => (
@@ -48,7 +81,13 @@ const Dashboard = ({ currentLanguage, setLanguage, interfaceLanguage = 'en' }) =
            </div>
            <div>
              <p className="text-sm text-slate-500">{t('learningLevel')}</p>
-             <p className="text-2xl font-bold text-slate-800">C1 Advanced</p>
+             {loading ? (
+               <p className="text-2xl font-bold text-slate-800">Loading...</p>
+             ) : learningLevel ? (
+               <p className="text-2xl font-bold text-slate-800">{learningLevel.level} {learningLevel.label}</p>
+             ) : (
+               <p className="text-2xl font-bold text-slate-800">A1 Beginner</p>
+             )}
            </div>
         </Card>
         
@@ -61,7 +100,11 @@ const Dashboard = ({ currentLanguage, setLanguage, interfaceLanguage = 'en' }) =
            </div>
            <div>
              <p className="text-sm text-slate-500">{t('wordsMastered')}</p>
-             <p className="text-2xl font-bold text-slate-800">1,248</p>
+             {loading ? (
+               <p className="text-2xl font-bold text-slate-800">...</p>
+             ) : (
+               <p className="text-2xl font-bold text-slate-800">{stats?.words_mastered || 0}</p>
+             )}
            </div>
         </Card>
         
@@ -74,7 +117,11 @@ const Dashboard = ({ currentLanguage, setLanguage, interfaceLanguage = 'en' }) =
            </div>
            <div>
              <p className="text-sm text-slate-500">{t('weeklyGoal')}</p>
-             <p className="text-2xl font-bold text-slate-800">85%</p>
+             {loading ? (
+               <p className="text-2xl font-bold text-slate-800">...</p>
+             ) : (
+               <p className="text-2xl font-bold text-slate-800">{weeklyGoalProgress}%</p>
+             )}
            </div>
         </Card>
       </div>
@@ -143,21 +190,34 @@ const Dashboard = ({ currentLanguage, setLanguage, interfaceLanguage = 'en' }) =
           <h3 className="font-bold text-slate-800">Recent Vocabulary</h3>
           <button onClick={() => navigate('/flashcards')} className="text-sm text-indigo-600 font-medium hover:underline">View all</button>
         </div>
-        <div className="space-y-3">
-          {[
-            { word: "Serendipity", def: "The occurrence of events by chance in a happy way." },
-            { word: "Mellifluous", def: "A sound that is sweet and musical; pleasant to hear." },
-            { word: "Ineffable", def: "Too great or extreme to be expressed or described in words." }
-          ].map((item, i) => (
-            <div key={i} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-100 shadow-sm">
-               <div>
-                 <p className="font-bold text-slate-800">{item.word}</p>
-                 <p className="text-xs text-slate-500">{item.def}</p>
-               </div>
-               <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
-            </div>
-          ))}
-        </div>
+        {recentWords.length === 0 ? (
+          <div className="text-center py-8 text-slate-400">
+            <p>No vocabulary learned yet</p>
+            <p className="text-sm mt-1">Start learning with flashcards!</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {recentWords.map((item, i) => (
+              <div 
+                key={i} 
+                className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-100 shadow-sm cursor-pointer hover:border-indigo-300 transition-all"
+                onClick={() => navigate('/flashcards')}
+              >
+                <div>
+                  <p className="font-bold text-slate-800">{item.word}</p>
+                  <p className="text-xs text-slate-500">
+                    Mastery: {item.mastery_level === 3 ? '⭐ Mastered' : item.mastery_level === 2 ? '✓ Known' : '📝 Learning'}
+                  </p>
+                </div>
+                <div className={`h-2 w-2 rounded-full ${
+                  item.mastery_level === 3 ? 'bg-emerald-500' : 
+                  item.mastery_level === 2 ? 'bg-blue-500' : 
+                  'bg-yellow-500'
+                }`}></div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
