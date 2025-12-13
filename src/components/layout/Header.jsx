@@ -15,18 +15,7 @@ const Header = ({ setIsSidebarOpen, interfaceLanguage, setInterfaceLanguage }) =
 
   const currentInterfaceLang = interfaceLanguages.find(lang => lang.code === interfaceLanguage) || interfaceLanguages[0];
 
-  const navLabels = {
-    '/dashboard': 'Dashboard',
-    '/text-analyzer': 'Text Analyzer',
-    '/language-tutor': 'Language Tutor',
-    '/flashcards': 'Flashcards',
-    '/settings': 'Settings',
-    '/courses/listening': 'Listening Practice',
-    '/courses/reading': 'Reading Practice',
-    '/courses/writing': 'Writing Practice',
-    '/courses/speaking': 'Speaking Practice',
-    '/courses/grammar': 'Grammar Awareness',
-  };
+  
 
   return (
     <header className="h-16 border-b border-slate-100 flex items-center justify-between px-6 bg-white shrink-0">
@@ -43,7 +32,7 @@ const Header = ({ setIsSidebarOpen, interfaceLanguage, setInterfaceLanguage }) =
         </Link>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="relative flex items-center gap-5">
          {/* Interface Language Selector */}
          <div className="relative">
            <button 
