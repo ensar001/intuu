@@ -30,7 +30,7 @@ export default function WeeklyGoalsSection({ stats, setWeeklyGoal, onMessage, lo
     <Card>
       <div className="p-6">
         <h2 className="text-xl font-semibold text-slate-900 mb-4 flex items-center gap-2">
-          <Target className="w-5 h-5 text-indigo-600" />
+          <Target className="w-5 h-5 text-primary-600" />
           Weekly Goals
         </h2>
         
@@ -45,14 +45,14 @@ export default function WeeklyGoalsSection({ stats, setWeeklyGoal, onMessage, lo
                 onClick={() => setGoalType('words')}
                 className={`p-4 border-2 rounded-lg transition-all ${
                   goalType === 'words'
-                    ? 'border-indigo-500 bg-indigo-50'
+                    ? 'border-primary-500 bg-primary-50'
                     : 'border-slate-200 bg-white hover:border-slate-300'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <BookOpen className={`w-6 h-6 ${goalType === 'words' ? 'text-indigo-600' : 'text-slate-400'}`} />
+                  <BookOpen className={`w-6 h-6 ${goalType === 'words' ? 'text-primary-600' : 'text-slate-400'}`} />
                   <div className="text-left">
-                    <p className={`font-semibold ${goalType === 'words' ? 'text-indigo-900' : 'text-slate-700'}`}>
+                    <p className={`font-semibold ${goalType === 'words' ? 'text-primary-900' : 'text-slate-700'}`}>
                       Words Learned
                     </p>
                     <p className="text-sm text-slate-500">Track vocabulary mastery</p>
@@ -65,14 +65,14 @@ export default function WeeklyGoalsSection({ stats, setWeeklyGoal, onMessage, lo
                 onClick={() => setGoalType('analyzer_uses')}
                 className={`p-4 border-2 rounded-lg transition-all ${
                   goalType === 'analyzer_uses'
-                    ? 'border-indigo-500 bg-indigo-50'
+                    ? 'border-primary-500 bg-primary-50'
                     : 'border-slate-200 bg-white hover:border-slate-300'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Brain className={`w-6 h-6 ${goalType === 'analyzer_uses' ? 'text-indigo-600' : 'text-slate-400'}`} />
+                  <Brain className={`w-6 h-6 ${goalType === 'analyzer_uses' ? 'text-primary-600' : 'text-slate-400'}`} />
                   <div className="text-left">
-                    <p className={`font-semibold ${goalType === 'analyzer_uses' ? 'text-indigo-900' : 'text-slate-700'}`}>
+                    <p className={`font-semibold ${goalType === 'analyzer_uses' ? 'text-primary-900' : 'text-slate-700'}`}>
                       Text Analyses
                     </p>
                     <p className="text-sm text-slate-500">Track grammar practice</p>
@@ -84,7 +84,7 @@ export default function WeeklyGoalsSection({ stats, setWeeklyGoal, onMessage, lo
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              Weekly Target: <span className="text-indigo-600 font-bold">{goalTarget}</span> {goalType === 'words' ? 'words' : 'analyses'}
+              Weekly Target: <span className="text-primary-600 font-bold">{goalTarget}</span> {goalType === 'words' ? 'words' : 'analyses'}
             </label>
             <input
               type="range"
@@ -93,7 +93,7 @@ export default function WeeklyGoalsSection({ stats, setWeeklyGoal, onMessage, lo
               step={goalType === 'words' ? "10" : "5"}
               value={goalTarget}
               onChange={(e) => setGoalTarget(parseInt(e.target.value))}
-              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary-600"
             />
             <div className="flex justify-between text-xs text-slate-500 mt-1">
               <span>{goalType === 'words' ? '10' : '5'}</span>

@@ -46,7 +46,7 @@ const CardForm = ({ onSubmit, onCancel, isSaving, error }) => {
                         value={frontText}
                         onChange={(e) => setFrontText(e.target.value)}
                         placeholder="e.g., der Tisch"
-                        className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
                         required
                         disabled={isSaving}
                     />
@@ -72,7 +72,7 @@ const CardForm = ({ onSubmit, onCancel, isSaving, error }) => {
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
                         placeholder="e.g., Noun, Verb, Adjective"
-                        className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
                         disabled={isSaving}
                     />
                 </div>
@@ -83,7 +83,7 @@ const CardForm = ({ onSubmit, onCancel, isSaving, error }) => {
                         value={example}
                         onChange={(e) => setExample(e.target.value)}
                         placeholder="e.g., Der Tisch ist groß. (The table is big.)"
-                        className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                        className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
                         rows="2"
                         disabled={isSaving}
                     />
@@ -395,7 +395,7 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
         return (
             <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
                     <p className="text-slate-600">Loading cards...</p>
                 </div>
             </div>
@@ -406,8 +406,8 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
         return (
             <div className="flex flex-col items-center justify-center h-full">
                 <div className="text-center max-w-md">
-                    <div className="w-24 h-24 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <Plus className="w-12 h-12 text-indigo-600" />
+                    <div className="w-24 h-24 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Plus className="w-12 h-12 text-primary-600" />
                     </div>
                     <h3 className="text-2xl font-bold text-slate-800 mb-2">No Cards Yet</h3>
                     <p className="text-slate-600 mb-6">Create your first card for <strong>{currentDeck.title}</strong></p>
@@ -441,7 +441,7 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
                         <div className="w-full px-8 py-6 bg-white/80 backdrop-blur-sm border-b border-slate-200">
                             <div className="max-w-7xl mx-auto flex justify-between items-center">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+                                    <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl flex items-center justify-center">
                                         <span className="text-2xl">{language === 'de' ? <GermanFlag/> : <USFlag/>}</span>
                                     </div>
                                     <div>
@@ -488,7 +488,7 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
                                     {/* Front Side */}
                                     <div className="absolute inset-0 bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col items-center justify-center p-12 backface-hidden hover:shadow-3xl transition-shadow">
                                         <div className="absolute top-6 left-6">
-                                            <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full uppercase tracking-wide">
+                                            <span className="px-3 py-1 bg-primary-100 text-primary-700 text-xs font-semibold rounded-full uppercase tracking-wide">
                                                 {t('germanWord')}
                                             </span>
                                         </div>
@@ -500,7 +500,7 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
                                     </div>
 
                                     {/* Back Side */}
-                                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl shadow-2xl flex flex-col p-12 backface-hidden rotate-y-180 overflow-hidden">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-primary-500 to-accent-600 rounded-3xl shadow-2xl flex flex-col p-12 backface-hidden rotate-y-180 overflow-hidden">
                                         <div className="mb-4 flex-shrink-0">
                                             <span className="px-3 py-1 bg-white/20 text-white text-xs font-semibold rounded-full uppercase tracking-wide">
                                                 {t('translation')}

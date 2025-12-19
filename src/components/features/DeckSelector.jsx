@@ -88,7 +88,7 @@ export default function DeckSelector({ onSelectDeck, onClose, language = 'de', o
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto">
           <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
             <p className="mt-4 text-slate-600">Loading decks...</p>
           </div>
         </div>
@@ -144,7 +144,7 @@ export default function DeckSelector({ onSelectDeck, onClose, language = 'de', o
                     <div className="flex items-center justify-between">
                       <div className="flex-1 cursor-pointer" onClick={() => onSelectDeck(deck, false)}>
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-slate-900 group-hover:text-indigo-600">
+                          <h3 className="font-semibold text-slate-900 group-hover:text-primary-600">
                             {deck.title}
                           </h3>
                           {deck.is_public ? (
@@ -163,7 +163,7 @@ export default function DeckSelector({ onSelectDeck, onClose, language = 'de', o
                             e.stopPropagation();
                             onSelectDeck(deck, true);
                           }}
-                          className="px-3 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                          className="px-3 py-2 bg-primary-50 text-primary-600 hover:bg-primary-100 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
                           title="Review with spaced repetition"
                         >
                           <RotateCcw className="w-4 h-4" />
@@ -176,7 +176,7 @@ export default function DeckSelector({ onSelectDeck, onClose, language = 'de', o
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
-                        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 transition-colors cursor-pointer" onClick={() => onSelectDeck(deck, false)} />
+                        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-primary-600 transition-colors cursor-pointer" onClick={() => onSelectDeck(deck, false)} />
                       </div>
                     </div>
                   </div>
@@ -195,7 +195,7 @@ export default function DeckSelector({ onSelectDeck, onClose, language = 'de', o
                 value={newDeckTitle}
                 onChange={(e) => setNewDeckTitle(e.target.value)}
                 placeholder="e.g., German Vocabulary, Business English..."
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
                 disabled={creating}
                 autoFocus
               />
@@ -207,7 +207,7 @@ export default function DeckSelector({ onSelectDeck, onClose, language = 'de', o
                 id="deckPublic"
                 checked={newDeckPublic}
                 onChange={(e) => setNewDeckPublic(e.target.checked)}
-                className="w-4 h-4 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
+                className="w-4 h-4 text-primary-600 rounded focus:ring-2 focus:ring-primary-500"
                 disabled={creating}
               />
               <label htmlFor="deckPublic" className="text-sm text-slate-700 cursor-pointer">

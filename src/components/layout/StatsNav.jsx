@@ -12,7 +12,7 @@ const StatsNav = ({ onNavigate }) => {
         <button
           key={item.id}
           onClick={() => onNavigate(item.id)}
-          className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:shadow-md hover:scale-105 transition-all duration-200"
+          className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-primary-50 hover:text-primary-600 hover:shadow-educational hover:scale-105 transition-all duration-200"
         >
           {item.label}
         </button>

@@ -19,11 +19,13 @@ const Speaking = lazy(() => import('./components/features/courses/Speaking'));
 const GrammarAwareness = lazy(() => import('./components/features/courses/GrammarAwareness'));
 const LearningLevel = lazy(() => import('./components/features/stats/LearningLevel'));
 const Settings = lazy(() => import('./components/features/Settings'));
+const EbookLibrary = lazy(() => import('./components/features/ebooks/EbookLibrary'));
+const EbookReader = lazy(() => import('./components/features/ebooks/EbookReader'));
 
 // Loading component
 const LoadingFallback = () => (
   <div className="flex items-center justify-center h-screen">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
   </div>
 );
 
@@ -79,6 +81,8 @@ const App = () => {
                   <Route path="/text-analyzer" element={<TextAnalyzer currentLanguage={currentLanguage} interfaceLanguage={interfaceLanguage} />} />
                   <Route path="/language-tutor" element={<GermanTutor currentLanguage={currentLanguage} interfaceLanguage={interfaceLanguage} />} />
                   <Route path="/flashcards" element={<Flashcards language={currentLanguage} interfaceLanguage={interfaceLanguage} />} />
+                  <Route path="/ebooks" element={<EbookLibrary currentLanguage={currentLanguage} />} />
+                  <Route path="/ebooks/:bookId" element={<EbookReader currentLanguage={currentLanguage} interfaceLanguage={interfaceLanguage} />} />
                   <Route path="/courses/listening" element={<Listening interfaceLanguage={interfaceLanguage} />} />
                   <Route path="/courses/reading" element={<Reading interfaceLanguage={interfaceLanguage} />} />
                   <Route path="/courses/writing" element={<Writing interfaceLanguage={interfaceLanguage} />} />

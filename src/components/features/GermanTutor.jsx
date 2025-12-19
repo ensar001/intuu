@@ -78,7 +78,7 @@ const GermanTutor = ({ currentLanguage = 'de', interfaceLanguage = 'en' }) => {
           <h2 className="text-2xl font-bold text-slate-800">{languageName} Correction Lab</h2>
           <p className="text-slate-500">Get instant feedback on your writing.</p>
         </div>
-        <div className={`${currentLanguage === 'de' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'} px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2`}>
+        <div className={`${currentLanguage === 'de' ? 'bg-secondary-100 text-secondary-800' : 'bg-primary-100 text-primary-800'} px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2`}>
           <span>{languageConfig.flag}</span>
           <span>{languageName}</span>
         </div>
@@ -88,20 +88,20 @@ const GermanTutor = ({ currentLanguage = 'de', interfaceLanguage = 'en' }) => {
         <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-2xl p-4 ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none shadow-sm'}`}>
+              <div className={`max-w-[80%] rounded-2xl p-4 ${msg.role === 'user' ? 'bg-primary-500 text-white rounded-br-none shadow-warm' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none shadow-educational'}`}>
                 {msg.text}
                 {msg.correction && (
                   <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
                     <div>
                       <div className="text-sm text-slate-500 mb-1">Corrected:</div>
-                      <div className="font-medium text-emerald-600 bg-emerald-50 p-2 rounded">
+                      <div className="font-medium text-success-700 bg-success-50 p-2 rounded">
                         {msg.corrected}
                       </div>
                     </div>
                     {msg.improved && (
                       <div>
                         <div className="text-sm text-slate-500 mb-1">Improved:</div>
-                        <div className="font-medium text-blue-600 bg-blue-50 p-2 rounded">
+                        <div className="font-medium text-accent-600 bg-accent-50 p-2 rounded">
                           {msg.improved}
                         </div>
                       </div>
@@ -136,9 +136,9 @@ const GermanTutor = ({ currentLanguage = 'de', interfaceLanguage = 'en' }) => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Schreibe etwas hier..."
+              placeholder={currentLanguage === 'en' ? "Write something here..." : "Schreibe etwas hier..."}
               disabled={isTyping}
-              className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+              className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
             />
             <Button onClick={handleSend} variant="primary" icon={Send} disabled={isTyping} className="px-6">Send</Button>
           </div>

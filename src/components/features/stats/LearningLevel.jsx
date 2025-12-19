@@ -159,7 +159,7 @@ const LearningLevel = () => {
             {/* Level Milestones Chart */}
             <div className="mt-6">
               <h4 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                <TrendingUp size={20} className="text-indigo-600" />
+                <TrendingUp size={20} className="text-primary-600" />
                 Level Milestones
               </h4>
               <ResponsiveContainer width="100%" height={300}>
@@ -235,7 +235,7 @@ const LearningLevel = () => {
 
           <Card className="p-8 mt-6">
             <h4 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-              <Calendar size={20} className="text-indigo-600" />
+              <Calendar size={20} className="text-primary-600" />
               Daily Learning Activity (Last 30 Days)
             </h4>
             {activityHistory.length > 0 ? (
@@ -282,7 +282,7 @@ const LearningLevel = () => {
                     {goalType === 'words_learned' ? 'Words to learn' : 'Text analyses to complete'}
                   </p>
                 </div>
-                <div className="p-4 bg-indigo-100 text-indigo-600 rounded-full">
+                <div className="p-4 bg-primary-100 text-primary-600 rounded-full">
                   <Target size={32} />
                 </div>
               </div>
@@ -291,7 +291,7 @@ const LearningLevel = () => {
 
           <Card className="p-8">
             <h4 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
-              <Award size={20} className="text-indigo-600" />
+              <Award size={20} className="text-primary-600" />
               Goal Progress
             </h4>
             <div className="flex items-center justify-center">
@@ -317,7 +317,7 @@ const LearningLevel = () => {
               </ResponsiveContainer>
             </div>
             <div className="text-center mt-6">
-              <p className="text-4xl font-bold text-indigo-600">{weeklyGoalProgress}%</p>
+              <p className="text-4xl font-bold text-primary-600">{weeklyGoalProgress}%</p>
               <p className="text-slate-600 mt-2">
                 {goalRemaining > 0 
                   ? `${goalRemaining} more to reach your goal!` 

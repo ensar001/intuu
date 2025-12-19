@@ -1,7 +1,7 @@
 import { memo } from 'react';
 
 const Card = memo(({ children, className = "", onClick }) => (
-  <div onClick={onClick} className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden ${className}`}>
+  <div onClick={onClick} className={`bg-white rounded-xl shadow-educational border border-slate-100 overflow-hidden ${className}`}>
     {children}
   </div>
 ));

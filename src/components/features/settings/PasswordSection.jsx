@@ -102,7 +102,7 @@ export default function PasswordSection({ user, onMessage, loading, setLoading }
     <Card>
       <div className="p-6">
         <h2 className="text-xl font-semibold text-slate-900 mb-4 flex items-center gap-2">
-          <Lock className="w-5 h-5 text-indigo-600" />
+          <Lock className="w-5 h-5 text-primary-600" />
           Change Password
         </h2>
         

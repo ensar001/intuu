@@ -39,7 +39,7 @@ export default function ProfileSection({ user, profile, onMessage, loading, setL
     <Card>
       <div className="p-6">
         <h2 className="text-xl font-semibold text-slate-900 mb-4 flex items-center gap-2">
-          <User className="w-5 h-5 text-indigo-600" />
+          <User className="w-5 h-5 text-primary-600" />
           Profile Information
         </h2>
         
@@ -52,7 +52,7 @@ export default function ProfileSection({ user, profile, onMessage, loading, setL
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
               disabled={loading}
             />
           </div>

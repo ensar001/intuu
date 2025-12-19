@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import aiRoutes from './routes/ai.js';
 import flashcardsRoutes from './routes/flashcards.js';
+import ebooksRoutes from './routes/ebooks.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,6 +30,7 @@ app.use(express.json());
 // Mount routes
 app.use('/api/ai', aiRoutes);
 app.use('/api/flashcards', flashcardsRoutes);
+app.use('/api', ebooksRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

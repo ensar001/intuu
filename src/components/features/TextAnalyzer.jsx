@@ -32,11 +32,11 @@ const TextAnalyzer = ({ currentLanguage = 'de', interfaceLanguage = 'en' }) => {
   const [error, setError] = useState(null);
 
   const levels = [
-    { id: 'a2', label: 'A2', color: 'bg-green-100 text-green-700 border-green-200' },
-    { id: 'b1', label: 'B1', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-    { id: 'b2', label: 'B2', color: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-    { id: 'c1', label: 'C1', color: 'bg-purple-100 text-purple-700 border-purple-200' },
-    { id: 'c2', label: 'C2', color: 'bg-pink-100 text-pink-700 border-pink-200' }
+    { id: 'a2', label: 'A2', color: 'bg-success-100 text-success-700 border-success-200' },
+    { id: 'b1', label: 'B1', color: 'bg-primary-100 text-primary-700 border-primary-200' },
+    { id: 'b2', label: 'B2', color: 'bg-primary-200 text-primary-800 border-primary-300' },
+    { id: 'c1', label: 'C1', color: 'bg-accent-100 text-accent-700 border-accent-200' },
+    { id: 'c2', label: 'C2', color: 'bg-secondary-100 text-secondary-700 border-secondary-200' }
   ];
 
   const handleAnalyze = async () => {
