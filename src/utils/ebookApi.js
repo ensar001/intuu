@@ -72,8 +72,8 @@ export const parsePdfFile = async (file) => {
               const fontSize = lineItems[0].height || 12;
               const yGap = previousY ? previousY - y : 0;
               
-              // First line is likely the title if it's substantial text
-              if (isFirstLine && lineText.length > 5) {
+              // Only mark the first line on page 1 as title if it's substantial text
+              if (isFirstLine && pageNum === 1 && lineText.length > 5 && lineText.length < 100) {
                 fullText += '### ';
                 isFirstLine = false;
               }
@@ -81,8 +81,8 @@ export const parsePdfFile = async (file) => {
               else if (yGap > fontSize * 1.5) {
                 fullText += '\n\n';
               }
-              // Detect potential headings (larger font size increase)
-              else if (previousFontSize && fontSize > previousFontSize * 1.2) {
+              // Very conservative heading detection: only if significantly larger (40%+) and short
+              else if (previousFontSize && fontSize > previousFontSize * 1.4 && lineText.length < 80) {
                 fullText += '\n\n### ';
               }
               

@@ -1,15 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, BookMarked, Settings, Type } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, BookMarked, Settings, Type, Volume2, VolumeX, Pause, Play } from 'lucide-react';
 import Button from '../../ui/Button';
 import Card from '../../ui/Card';
 import TranslationPopover from './TranslationPopover';
 import { getBookById, updateReadingProgress } from '../../../utils/ebookApi';
+import { useAuth } from '../../../contexts/AuthContext';
+import { supabase } from '../../../utils/supabaseClient';
 
 const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
   const { bookId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const contentRef = useRef(null);
+  const audioRef = useRef(null);
+  const animationFrameRef = useRef(null);
 
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -19,6 +24,15 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
   const [selectedText, setSelectedText] = useState('');
   const [showTranslation, setShowTranslation] = useState(false);
   const [translationPosition, setTranslationPosition] = useState({ top: 0, left: 0 });
+  
+  // TTS state
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isSynthesizing, setIsSynthesizing] = useState(false);
+  const [audioUrl, setAudioUrl] = useState(null);
+  const [isCached, setIsCached] = useState(false);
+  const [highlightedSentenceIndex, setHighlightedSentenceIndex] = useState(-1);
+  const [pageSentences, setPageSentences] = useState([]);
+  const [speechMarks, setSpeechMarks] = useState([]);
 
   useEffect(() => {
     loadBook();
@@ -110,6 +124,191 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
     window.getSelection()?.removeAllRanges();
   };
 
+  const synthesizeSpeech = async () => {
+    if (!book || isSynthesizing) return;
+
+    try {
+      setIsSynthesizing(true);
+      setIsCached(false);
+      setHighlightedSentenceIndex(-1);
+      
+      // Get current page text without formatting markers
+      const pageText = getCurrentPageContent()
+        .replace(/###\s/g, '') // Remove heading markers
+        .replace(/---/g, '') // Remove page break markers
+        .replace(/\n\n+/g, '\n') // Reduce multiple newlines
+        .trim();
+
+      if (!pageText) {
+        alert('No text to read on this page');
+        return;
+      }
+
+      // Split into sentences for highlighting
+      const sentences = pageText.match(/[^.!?]+[.!?]+/g) || [pageText];
+      setPageSentences(sentences);
+      console.log(`[TTS] Prepared ${sentences.length} sentences for highlighting`);
+
+      // Get user's auth token from Supabase session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        alert('Please log in to use text-to-speech');
+        return;
+      }
+
+      const token = session.access_token;
+
+      const response = await fetch('http://localhost:3001/api/tts/synthesize-chunked', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          text: pageText,
+          language: book.language || 'de'
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to synthesize speech');
+      }
+
+      // Response is now JSON with audioUrl
+      const data = await response.json();
+      
+      console.log('[TTS] Received:', data);
+      console.log('[TTS] Speech marks:', data.speechMarks?.length || 0, 'timing points');
+      
+      setAudioUrl(data.audioUrl);
+      setIsCached(data.cached);
+      setSpeechMarks(data.speechMarks || []);
+      setIsPlaying(true);
+
+    } catch (error) {
+      console.error('TTS error:', error);
+      alert(`Failed to generate speech: ${error.message}`);
+    } finally {
+      setIsSynthesizing(false);
+    }
+  };
+
+  const syncHighlightWithAudio = () => {
+    if (!audioRef.current || !pageSentences.length) return;
+    
+    const currentTime = audioRef.current.currentTime * 1000; // Convert to milliseconds
+    const duration = audioRef.current.duration;
+    
+    if (duration && currentTime > 0) {
+      let targetSentenceIndex = 0;
+      
+      // Use real timing data if available (from AWS Polly speech marks)
+      if (speechMarks && speechMarks.length > 0) {
+        // Add 350ms delay so sentence is highlighted while it's being actively spoken
+        const adjustedTime = currentTime - 350;
+        
+        // Find which sentence we're currently on based on speech marks
+        for (let i = 0; i < speechMarks.length; i++) {
+          if (adjustedTime >= speechMarks[i].time) {
+            targetSentenceIndex = i;
+          } else {
+            break;
+          }
+        }
+      } else {
+        // Fallback: estimate based on character count
+        const sentenceCharCounts = pageSentences.map(s => s.length);
+        const totalChars = sentenceCharCounts.reduce((sum, count) => sum + count, 0);
+        
+        let accumulatedTime = 0;
+        
+        for (let i = 0; i < pageSentences.length; i++) {
+          const sentenceProportion = sentenceCharCounts[i] / totalChars;
+          const sentenceDuration = sentenceProportion * duration * 1000;
+          
+          if (currentTime >= accumulatedTime && currentTime < accumulatedTime + sentenceDuration) {
+            targetSentenceIndex = i;
+            break;
+          }
+          
+          accumulatedTime += sentenceDuration;
+          
+          if (i === pageSentences.length - 1) {
+            targetSentenceIndex = i;
+          }
+        }
+      }
+      
+      if (targetSentenceIndex !== highlightedSentenceIndex) {
+        const timingMethod = speechMarks.length > 0 ? 'AWS Polly' : 'estimate';
+        console.log(`[Highlight] Sentence ${targetSentenceIndex + 1}/${pageSentences.length} at ${(currentTime/1000).toFixed(1)}s (${timingMethod})`);
+        setHighlightedSentenceIndex(targetSentenceIndex);
+      }
+    }
+    
+    if (isPlaying) {
+      animationFrameRef.current = requestAnimationFrame(syncHighlightWithAudio);
+    }
+  };
+
+  const togglePlayPause = () => {
+    if (!audioRef.current) return;
+
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    } else {
+      audioRef.current.play();
+      setIsPlaying(true);
+      syncHighlightWithAudio();
+    }
+  };
+
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setIsPlaying(false);
+    setAudioUrl(null); // No need to revoke URL, it's from Supabase Storage
+    setHighlightedSentenceIndex(-1);
+    setSpeechMarks([]);
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+  };
+
+  // Cleanup audio on unmount or page change
+  useEffect(() => {
+    return () => {
+      stopAudio();
+    };
+  }, [currentPage]);
+
+  // Cleanup animation frame on unmount
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
+
+  // Auto-play audio when URL is set
+  useEffect(() => {
+    if (audioUrl && audioRef.current) {
+      audioRef.current.play().catch(error => {
+        console.error('Audio playback failed:', error);
+        alert('Failed to play audio. Please try clicking the play button.');
+      });
+    }
+  }, [audioUrl]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -150,6 +349,69 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
 
             {/* Controls */}
             <div className="flex items-center gap-2">
+              {/* TTS Controls */}
+              {!audioUrl ? (
+                <button
+                  onClick={synthesizeSpeech}
+                  disabled={isSynthesizing}
+                  className="flex items-center gap-2 px-3 py-2 bg-primary-500 hover:bg-primary-600 disabled:bg-slate-300 text-white rounded-lg transition-colors"
+                  title="Read page aloud"
+                >
+                  {isSynthesizing ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm hidden md:inline">
+                        {isCached ? 'Loading...' : 'Generating...'}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="w-4 h-4" />
+                      <span className="text-sm hidden md:inline">Listen</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={togglePlayPause}
+                    className="p-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors"
+                    title={isPlaying ? 'Pause' : 'Play'}
+                  >
+                    {isPlaying ? (
+                      <Pause className="w-4 h-4" />
+                    ) : (
+                      <Play className="w-4 h-4" />
+                    )}
+                  </button>
+                  <button
+                    onClick={stopAudio}
+                    className="p-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                    title="Stop"
+                  >
+                    <VolumeX className="w-4 h-4" />
+                  </button>
+                  <a
+                    href={audioUrl}
+                    download={`${book.title}-page-${currentPage}.mp3`}
+                    className="p-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+                    title="Download audio"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </a>
+                  {isCached && (
+                    <span className="hidden lg:inline text-xs text-green-600 font-medium">
+                      (Cached)
+                    </span>
+                  )}
+                </div>
+              )}
+              
+              <div className="w-px h-6 bg-slate-300 mx-2" />
+              
+              {/* Font Size Controls */}
               <button
                 onClick={() => handleFontSizeChange(-2)}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
@@ -223,10 +485,41 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
               if (line.trim() === '') {
                 return <div key={index} className="h-4" />;
               }
-              // Regular paragraphs
+              // Regular paragraphs with sentence-level highlighting
+              const textContent = line;
+              const sentences = textContent.match(/[^.!?]+[.!?]+/g) || [textContent];
+
+              // Calculate starting sentence index for this line
+              const allPreviousText = getCurrentPageContent()
+                .replace(/###\s/g, '')
+                .replace(/---/g, '')
+                .replace(/\n\n+/g, '\n')
+                .trim()
+                .split('\n')
+                .slice(0, index)
+                .join(' ');
+              const previousSentences = allPreviousText.match(/[^.!?]+[.!?]+/g) || [];
+              const startingSentenceIndex = previousSentences.length;
+
               return (
                 <p key={index} className="text-slate-800 mb-2 text-justify leading-relaxed">
-                  {line}
+                  {sentences.map((sentence, sentIndex) => {
+                    const globalSentenceIndex = startingSentenceIndex + sentIndex;
+                    const isHighlighted = globalSentenceIndex === highlightedSentenceIndex;
+                    
+                    return (
+                      <span
+                        key={sentIndex}
+                        className={`transition-all duration-300 ${
+                          isHighlighted 
+                            ? 'bg-yellow-200 text-slate-900 font-medium shadow-sm px-1 rounded' 
+                            : ''
+                        }`}
+                      >
+                        {sentence}
+                      </span>
+                    );
+                  })}
                 </p>
               );
             })}
@@ -272,10 +565,32 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
         {/* Help Text */}
         <div className="mt-6 p-4 bg-primary-50 border border-primary-200 rounded-lg">
           <p className="text-sm text-primary-900 text-center">
-            💡 <span className="font-semibold">Tip:</span> Select any word or sentence to see its translation
+            💡 <span className="font-semibold">Tip:</span> Select any word or sentence to see its translation, or click "Listen" to hear the page read aloud
           </p>
         </div>
       </div>
+
+      {/* Hidden Audio Player */}
+      {audioUrl && (
+        <audio
+          ref={audioRef}
+          src={audioUrl}
+          onEnded={() => {
+            setIsPlaying(false);
+            setHighlightedSentenceIndex(-1);
+          }}
+          onPlay={() => {
+            setIsPlaying(true);
+            syncHighlightWithAudio();
+          }}
+          onPause={() => {
+            setIsPlaying(false);
+            if (animationFrameRef.current) {
+              cancelAnimationFrame(animationFrameRef.current);
+            }
+          }}
+        />
+      )}
 
       {/* Translation Popover */}
       {showTranslation && selectedText && (

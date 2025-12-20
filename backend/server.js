@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import aiRoutes from './routes/ai.js';
 import flashcardsRoutes from './routes/flashcards.js';
 import ebooksRoutes from './routes/ebooks.js';
+import ttsRoutes from './routes/tts.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +32,7 @@ app.use(express.json());
 app.use('/api/ai', aiRoutes);
 app.use('/api/flashcards', flashcardsRoutes);
 app.use('/api', ebooksRoutes);
+app.use('/api/tts', ttsRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

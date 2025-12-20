@@ -39,11 +39,11 @@ export const useUserStats = () => {
     }
   };
 
-  const learnWord = async (word, language, cardId = null, masteryLevel = 1) => {
+  const learnWord = async (word, language, masteryLevel = 1) => {
     if (!user) return;
     
     try {
-      await userStatsApi.learnWord(user.id, word, language, cardId, masteryLevel);
+      await userStatsApi.learnWord(user.id, word, language, masteryLevel);
       await recordActivity('words_learned');
       await loadStats(); // Reload to get updated words_mastered
     } catch (err) {

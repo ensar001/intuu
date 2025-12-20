@@ -129,7 +129,6 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState(null);
-    const [reviewMode, setReviewMode] = useState(false); // New: review mode flag
 
     const currentCard = cards[currentIndex];
 
@@ -203,7 +202,6 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
             const data = await cardApi.getCards(currentDeck.id);
             setCards(data);
             setCurrentIndex(0);
-            setReviewMode(false);
         } catch (error) {
             console.error('Failed to load cards:', error);
         } finally {
@@ -211,44 +209,9 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
         }
     };
 
-    // New: Load cards in spaced repetition order
-    const loadReviewMode = async () => {
-        if (!currentDeck) return;
-        
-        setIsLoading(true);
-        try {
-            const data = await cardApi.getCards(currentDeck.id);
-            
-            // Sort by spaced repetition algorithm
-            // Priority: 1) Don't know (mastery 0), 2) Learning (mastery 1), 3) Familiar (mastery 2), 4) Known (mastery 3)
-            // Within each group, sort by next_review_at (due cards first)
-            const sortedCards = data.sort((a, b) => {
-                // First, sort by mastery level
-                if (a.mastery_level !== b.mastery_level) {
-                    return a.mastery_level - b.mastery_level;
-                }
-                // Then by review date (earlier dates first)
-                return new Date(a.next_review_at) - new Date(b.next_review_at);
-            });
-            
-            setCards(sortedCards);
-            setCurrentIndex(0);
-            setReviewMode(true);
-        } catch (error) {
-            console.error('Failed to load cards for review:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleSelectDeck = (deck, isReviewMode = false) => {
+    const handleSelectDeck = (deck) => {
         setCurrentDeck(deck);
         setShowDeckSelector(false);
-        
-        // Load cards in review mode or normal mode
-        if (isReviewMode) {
-            setTimeout(() => loadReviewMode(), 100);
-        }
     };
 
     const nextCard = () => {
@@ -312,37 +275,27 @@ const Flashcards = ({ language = 'de', interfaceLanguage = 'en' }) => {
         }
     };
 
-    const recordReview = async (quality) => {
+    const recordReview = async (isCorrect) => {
         if (!currentCard) return;
         
         try {
-            // Update card mastery and spaced repetition data
-            const newMasteryLevel = quality ? Math.min((currentCard.mastery_level || 0) + 1, 3) : 0;
-            const timesCorrect = quality ? (currentCard.times_correct || 0) + 1 : currentCard.times_correct || 0;
-            const timesIncorrect = !quality ? (currentCard.times_incorrect || 0) + 1 : currentCard.times_incorrect || 0;
-            
-            // Calculate next review using SM-2 algorithm
-            const reviewData = cardApi.calculateNextReview(
-                quality ? 4 : 2, // quality 0-5
-                currentCard.interval || 1,
-                currentCard.ease_factor || 2.5
-            );
+            // Simple mastery tracking: 0 (don't know) -> 3 (mastered)
+            const newMasteryLevel = isCorrect ? Math.min((currentCard.mastery_level || 0) + 1, 3) : 0;
+            const timesCorrect = isCorrect ? (currentCard.times_correct || 0) + 1 : currentCard.times_correct || 0;
+            const timesIncorrect = !isCorrect ? (currentCard.times_incorrect || 0) + 1 : currentCard.times_incorrect || 0;
 
+            // Update card with simple progress metrics
             await cardApi.updateCard(currentCard.id, {
                 mastery_level: newMasteryLevel,
                 times_correct: timesCorrect,
-                times_incorrect: timesIncorrect,
-                next_review_at: reviewData.nextReviewAt,
-                interval: reviewData.interval,
-                ease_factor: reviewData.easeFactor
+                times_incorrect: timesIncorrect
             });
 
             // Track word learning in user stats
-            if (quality && user) {
+            if (isCorrect && user) {
                 await learnWord(
                     currentCard.front_text,
                     language,
-                    currentCard.id,
                     newMasteryLevel
                 );
                 

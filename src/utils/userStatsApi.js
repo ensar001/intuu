@@ -91,12 +91,13 @@ export const userStatsApi = {
   },
 
   // Mark word as learned
-  learnWord: async (userId, word, language, cardId = null, masteryLevel = 1) => {
+  learnWord: async (userId, word, language, masteryLevel = 1) => {
     const { data: existing } = await supabase
       .from('learned_words')
       .select('*')
       .eq('user_id', userId)
-      .eq(cardId ? 'card_id' : 'word', cardId || word)
+      .eq('word', word)
+      .eq('language', language)
       .maybeSingle();
 
     if (existing) {
@@ -126,7 +127,6 @@ export const userStatsApi = {
         .from('learned_words')
         .insert([{
           user_id: userId,
-          card_id: cardId,
           word,
           language,
           mastery_level: masteryLevel,
