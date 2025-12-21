@@ -8,11 +8,7 @@ export default function AccountStatsSection({ profile }) {
           Account Statistics
         </h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-gradient-to-br from-primary-50 to-primary-100 rounded-lg">
-            <p className="text-sm text-primary-700 font-medium">XP Points</p>
-            <p className="text-2xl font-bold text-primary-900">{profile?.xp_points || 0}</p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
             <p className="text-sm text-green-700 font-medium">Current Streak</p>
             <p className="text-2xl font-bold text-green-900">{profile?.current_streak || 0} days</p>

@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { CheckCircle, Brain, Award, ChevronRight, MessageSquare, Headphones, BookText, PenTool, Mic, GraduationCap, Flame, BookOpen, Library } from 'lucide-react';
+import { CheckCircle, Brain, Award, ChevronRight, MessageSquare, Flame, BookOpen, Library } from 'lucide-react';
 import Card from '../ui/Card';
 import { LANGUAGES } from '../../utils/constants';
 import { useTranslation } from '../../utils/translations';
@@ -29,44 +29,65 @@ const Dashboard = ({ currentLanguage, setLanguage, interfaceLanguage = 'en' }) =
     loadRecentWords();
   }, [user, currentLanguage]);
 
-  const courseCards = [
-    { id: 'listening', label: t('listening'), icon: Headphones, path: '/courses/listening', color: 'from-primary-500 to-primary-600', emoji: '🎧' },
-    { id: 'reading', label: t('reading'), icon: BookText, path: '/courses/reading', color: 'from-success-500 to-success-600', emoji: '📖' },
-    { id: 'writing', label: t('writing'), icon: PenTool, path: '/courses/writing', color: 'from-accent-500 to-accent-600', emoji: '✍️' },
-    { id: 'speaking', label: t('speaking'), icon: Mic, path: '/courses/speaking', color: 'from-secondary-500 to-secondary-600', emoji: '🎤' },
-    { id: 'grammar', label: t('grammarAwareness'), icon: GraduationCap, path: '/courses/grammar', color: 'from-primary-600 to-accent-600', emoji: '📚' },
-  ];
+  const languagePhrases = {
+    de: { phrase: "Guten Tag", meaning: "Good day" },
+    tr: { phrase: "Merhaba", meaning: "Hello" },
+    es: { phrase: "Hola", meaning: "Hello" },
+    fr: { phrase: "Bonjour", meaning: "Good day" },
+    it: { phrase: "Ciao", meaning: "Hello" },
+  };
+
+  const currentPhrase = languagePhrases[currentLanguage] || languagePhrases.de;
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800">{t('welcomeBack')}, {user?.email?.split('@')[0] || 'Student'}!</h1>
-          <div className="flex items-center gap-2 mt-1">
-            {stats && stats.current_streak > 0 && (
-              <>
-                <Flame className="w-5 h-5 text-secondary-500" />
-                <p className="text-slate-600">
-                  You're on a <span className="font-bold text-secondary-600">{stats.current_streak}</span>-day streak! 🔥
-                </p>
-              </>
-            )}
-            {(!stats || stats.current_streak === 0) && (
-              <p className="text-slate-600">Start your learning streak today!</p>
-            )}
+    <div className="space-y-8 relative">
+      {/* Cork Board Background Pattern */}
+      <div className="fixed inset-0 -z-10 opacity-[0.15]" style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23CD9B5B' fill-opacity='0.4'%3E%3Ccircle cx='10' cy='10' r='1.5'/%3E%3Ccircle cx='30' cy='15' r='1'/%3E%3Ccircle cx='50' cy='8' r='1.2'/%3E%3Ccircle cx='70' cy='12' r='0.8'/%3E%3Ccircle cx='85' cy='18' r='1.5'/%3E%3Ccircle cx='20' cy='35' r='1.3'/%3E%3Ccircle cx='45' cy='40' r='0.9'/%3E%3Ccircle cx='65' cy='38' r='1.4'/%3E%3Ccircle cx='90' cy='42' r='1.1'/%3E%3Ccircle cx='15' cy='60' r='1'/%3E%3Ccircle cx='35' cy='65' r='1.2'/%3E%3Ccircle cx='55' cy='62' r='0.8'/%3E%3Ccircle cx='75' cy='68' r='1.5'/%3E%3Ccircle cx='25' cy='85' r='1.3'/%3E%3Ccircle cx='48' cy='88' r='1'/%3E%3Ccircle cx='70' cy='90' r='1.2'/%3E%3Ccircle cx='92' cy='85' r='0.9'/%3E%3C/g%3E%3C/svg%3E")`,
+        backgroundColor: '#F5E6D3'
+      }}></div>
+      
+      {/* Welcome Section */}
+      <div className="py-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex-1">
+            <div className="inline-block px-4 py-1.5 bg-primary-50 rounded-full text-sm font-medium mb-3 text-primary-700">
+              {currentPhrase.phrase} · {currentPhrase.meaning}
+            </div>
+            <h1 className="text-2xl md:text-3xl font-bold mb-3 text-slate-800">
+              {t('welcomeBack')}, {user?.email?.split('@')[0] || 'Student'}!
+            </h1>
+            <div className="flex items-center gap-2">
+              {stats && stats.current_streak > 0 ? (
+                <>
+                  <Flame className="w-6 h-6 text-secondary-500" />
+                  <p className="text-lg text-slate-700">
+                    <span className="font-bold text-secondary-600">{stats.current_streak}</span> day streak! Keep going 🔥
+                  </p>
+                </>
+              ) : (
+                <p className="text-lg text-slate-700">Start your learning journey today! ✨</p>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="flex gap-2">
-           {LANGUAGES.map(lang => (
-             <button 
+          
+          {/* Language Selector */}
+          <div className="flex gap-2 flex-wrap">
+            {LANGUAGES.map(lang => (
+              <button 
                 key={lang.id}
                 onClick={() => setLanguage(lang.id)}
-                className={`px-4 py-2 rounded-lg border flex items-center gap-2 transition-all ${currentLanguage === lang.id ? 'bg-primary-50 border-primary-200 text-primary-700 shadow-educational' : 'bg-white border-slate-200 text-slate-600 hover:bg-primary-50'}`}
-             >
-               <span>{lang.flag}</span>
-               <span className="font-medium">{lang.name}</span>
-             </button>
-           ))}
+                className={`px-4 py-2.5 rounded-xl border-2 flex items-center gap-2 transition-all font-medium ${
+                  currentLanguage === lang.id 
+                    ? 'bg-primary-600 text-white border-primary-600 shadow-lg' 
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-primary-300 hover:bg-primary-50'
+                }`}
+              >
+                <span className="text-xl">{lang.flag}</span>
+                <span>{lang.name}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -126,132 +147,206 @@ const Dashboard = ({ currentLanguage, setLanguage, interfaceLanguage = 'en' }) =
         </Card>
       </div>
 
-      {/* Recommended Activities */}
+      {/* Main Learning Tools */}
       <div>
-        <h3 className="text-xl font-bold text-slate-800 mb-4">Recommended for You</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <h3 className="text-2xl font-bold text-slate-800 mb-6">Your Learning Tools</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Text Analyzer Card with Image */}
           <div 
             onClick={() => navigate('/text-analyzer')}
-            className="group bg-gradient-to-br from-primary-500 to-accent-500 rounded-2xl p-6 text-white cursor-pointer shadow-warm hover:shadow-educational-lg transition-all hover:-translate-y-1 relative overflow-hidden"
+            className="group relative rounded-3xl overflow-hidden cursor-pointer shadow-warm hover:shadow-2xl transition-all hover:-translate-y-2 h-72"
           >
-            <div className="relative z-10">
-              <div className="flex justify-between items-start mb-4">
-                <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm">Grammar Focus</span>
-                <Brain size={24} className="text-white/80" />
+            {/* Background Image with Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-primary-600 to-accent-600"></div>
+            <div 
+              className="absolute inset-0 opacity-30 bg-cover bg-center mix-blend-overlay"
+              style={{ backgroundImage: `url('https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=800&q=80')` }}
+            ></div>
+            
+            {/* Pattern Overlay */}
+            <div className="absolute inset-0 opacity-5" style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M0 0h20v20H0V0zm10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14zm20 0a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM10 37a7 7 0 1 0 0-14 7 7 0 0 0 0 14zm10-17h20v20H20V20zm10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14z'/%3E%3C/g%3E%3C/svg%3E")`
+            }}></div>
+
+            {/* Content */}
+            <div className="relative h-full p-8 flex flex-col justify-between text-white">
+              <div>
+                <div className="flex justify-between items-start mb-4">
+                  <span className="bg-white/20 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md">
+                    Grammar Focus
+                  </span>
+                  <Brain size={28} className="text-white/90" />
+                </div>
+                <h3 className="text-3xl font-bold mb-3">Text Analyzer</h3>
+                <p className="text-white/90 text-base leading-relaxed">
+                  Analyze grammar structures, cases, and verb forms at your level with AI-powered insights.
+                </p>
               </div>
-              <h3 className="text-2xl font-bold mb-2">Text Analyzer</h3>
-              <p className="text-primary-100 mb-6 text-sm">Analyze grammar structures, cases, and verb forms at your level.</p>
-              <span className="inline-flex items-center gap-2 text-sm font-semibold bg-white text-primary-600 px-4 py-2 rounded-lg group-hover:bg-primary-50 transition-colors">
-                Start Analysis <ChevronRight size={16} />
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 text-base font-semibold bg-white text-primary-600 px-6 py-3 rounded-xl group-hover:bg-white/95 transition-all shadow-lg">
+                  Start Analysis <ChevronRight size={18} />
+                </span>
+              </div>
             </div>
-            {/* Decoration */}
-            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all"></div>
           </div>
 
+          {/* Language Tutor Card with Image */}
           <div 
             onClick={() => navigate('/language-tutor')}
-            className="group bg-white border border-slate-200 rounded-2xl p-6 cursor-pointer hover:shadow-educational-lg hover:border-secondary-300 transition-all hover:-translate-y-1"
+            className="group relative rounded-3xl overflow-hidden cursor-pointer shadow-warm hover:shadow-2xl transition-all hover:-translate-y-2 h-72"
           >
-             <div className="flex justify-between items-start mb-4">
-                <span className="bg-secondary-100 text-secondary-800 px-3 py-1 rounded-full text-xs font-semibold">Correction</span>
-                <MessageSquare size={24} className="text-secondary-500" />
+            {/* Background Image with Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-secondary-500 to-secondary-700"></div>
+            <div 
+              className="absolute inset-0 opacity-30 bg-cover bg-center mix-blend-overlay"
+              style={{ backgroundImage: `url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800&q=80')` }}
+            ></div>
+            
+            {/* Pattern Overlay */}
+            <div className="absolute inset-0 opacity-5" style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20.5V18H0v-2h20v-2H0v-2h20v-2H0V8h20V6H0V4h20V2H0V0h22v20h2V0h2v20h2V0h2v20h2V0h2v20h2V0h2v20h2v2H20v-1.5zM0 20h2v20H0V20zm4 0h2v20H4V20zm4 0h2v20H8V20zm4 0h2v20h-2V20zm4 0h2v20h-2V20zm4 4h20v2H20v-2zm0 4h20v2H20v-2zm0 4h20v2H20v-2zm0 4h20v2H20v-2z' fill='%23ffffff' fill-opacity='1'/%3E%3C/svg%3E")`
+            }}></div>
+
+            {/* Content */}
+            <div className="relative h-full p-8 flex flex-col justify-between text-white">
+              <div>
+                <div className="flex justify-between items-start mb-4">
+                  <span className="bg-white/20 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md">
+                    AI Correction
+                  </span>
+                  <MessageSquare size={28} className="text-white/90" />
+                </div>
+                <h3 className="text-3xl font-bold mb-3">Language Tutor</h3>
+                <p className="text-white/90 text-base leading-relaxed">
+                  Write and get instant corrections on grammar, cases, and natural expression.
+                </p>
               </div>
-              <h3 className="text-2xl font-bold text-slate-800 mb-2">Language Tutor</h3>
-              <p className="text-slate-500 mb-6 text-sm">Write and get instant corrections on grammar and cases.</p>
-               <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 group-hover:text-secondary-600 transition-colors">
-                Open Chat <ChevronRight size={16} />
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 text-base font-semibold bg-white text-secondary-600 px-6 py-3 rounded-xl group-hover:bg-white/95 transition-all shadow-lg">
+                  Open Chat <ChevronRight size={18} />
+                </span>
+              </div>
+            </div>
           </div>
 
+          {/* Flashcards Card with Image */}
           <div 
             onClick={() => navigate('/flashcards')}
-            className="group bg-gradient-to-br from-success-500 to-success-600 rounded-2xl p-6 text-white cursor-pointer shadow-warm hover:shadow-educational-lg transition-all hover:-translate-y-1 relative overflow-hidden"
+            className="group relative rounded-3xl overflow-hidden cursor-pointer shadow-warm hover:shadow-2xl transition-all hover:-translate-y-2 h-72"
           >
-            <div className="relative z-10">
-              <div className="flex justify-between items-start mb-4">
-                <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm">Memory</span>
-                <BookOpen size={24} className="text-white/80" />
+            {/* Background Image with Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-success-500 to-success-700"></div>
+            <div 
+              className="absolute inset-0 opacity-30 bg-cover bg-center mix-blend-overlay"
+              style={{ backgroundImage: `url('https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&q=80')` }}
+            ></div>
+            
+            {/* Pattern Overlay */}
+            <div className="absolute inset-0 opacity-5" style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M0 0h20L0 20z'/%3E%3C/g%3E%3C/svg%3E")`
+            }}></div>
+
+            {/* Content */}
+            <div className="relative h-full p-8 flex flex-col justify-between text-white">
+              <div>
+                <div className="flex justify-between items-start mb-4">
+                  <span className="bg-white/20 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md">
+                    Memory Mastery
+                  </span>
+                  <BookOpen size={28} className="text-white/90" />
+                </div>
+                <h3 className="text-3xl font-bold mb-3">Flashcards</h3>
+                <p className="text-white/90 text-base leading-relaxed">
+                  Master vocabulary with spaced repetition and smart review algorithms.
+                </p>
               </div>
-              <h3 className="text-2xl font-bold mb-2">Flashcards</h3>
-              <p className="text-success-100 mb-6 text-sm">Master vocabulary with spaced repetition and smart review.</p>
-              <span className="inline-flex items-center gap-2 text-sm font-semibold bg-white text-success-600 px-4 py-2 rounded-lg group-hover:bg-success-50 transition-colors">
-                Start Learning <ChevronRight size={16} />
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 text-base font-semibold bg-white text-success-600 px-6 py-3 rounded-xl group-hover:bg-white/95 transition-all shadow-lg">
+                  Start Learning <ChevronRight size={18} />
+                </span>
+              </div>
             </div>
-            {/* Decoration */}
-            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all"></div>
           </div>
 
+          {/* E-Books Card with Image */}
           <div 
             onClick={() => navigate('/ebooks')}
-            className="group bg-gradient-to-br from-accent-500 to-accent-600 rounded-2xl p-6 text-white cursor-pointer shadow-warm hover:shadow-educational-lg transition-all hover:-translate-y-1 relative overflow-hidden"
+            className="group relative rounded-3xl overflow-hidden cursor-pointer shadow-warm hover:shadow-2xl transition-all hover:-translate-y-2 h-72"
           >
-            <div className="relative z-10">
-              <div className="flex justify-between items-start mb-4">
-                <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm">Reading</span>
-                <Library size={24} className="text-white/80" />
-              </div>
-              <h3 className="text-2xl font-bold mb-2">E-Books</h3>
-              <p className="text-accent-100 mb-6 text-sm">Read books with instant AI-powered word translations.</p>
-              <span className="inline-flex items-center gap-2 text-sm font-semibold bg-white text-accent-600 px-4 py-2 rounded-lg group-hover:bg-accent-50 transition-colors">
-                Open Library <ChevronRight size={16} />
-              </span>
-            </div>
-            {/* Decoration */}
-            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all"></div>
-          </div>
-        </div>
-      </div>
+            {/* Background Image with Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-accent-500 to-accent-700"></div>
+            <div 
+              className="absolute inset-0 opacity-30 bg-cover bg-center mix-blend-overlay"
+              style={{ backgroundImage: `url('https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&q=80')` }}
+            ></div>
+            
+            {/* Pattern Overlay */}
+            <div className="absolute inset-0 opacity-5" style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M15 0C6.716 0 0 6.716 0 15c0 8.284 6.716 15 15 15 8.284 0 15-6.716 15-15 0-8.284-6.716-15-15-15zm0 28C7.82 28 2 22.18 2 15S7.82 2 15 2s13 5.82 13 13-5.82 13-13 13z' fill='%23ffffff' fill-opacity='1'/%3E%3C/svg%3E")`
+            }}></div>
 
-      {/* Courses Section */}
-      <div>
-        <h3 className="text-xl font-bold text-slate-800 mb-4">Courses</h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {courseCards.map((course) => (
-            <Card
-              key={course.id}
-              onClick={() => navigate(course.path)}
-              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:-translate-y-1 group text-center"
-            >
-              <div className="text-4xl mb-3">{course.emoji}</div>
-              <h4 className="font-semibold text-slate-800 mb-1">{course.label}</h4>
-              <p className="text-xs text-slate-500 group-hover:text-primary-600 transition-colors">Start learning</p>
-            </Card>
-          ))}
+            {/* Content */}
+            <div className="relative h-full p-8 flex flex-col justify-between text-white">
+              <div>
+                <div className="flex justify-between items-start mb-4">
+                  <span className="bg-white/20 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md">
+                    Immersive Reading
+                  </span>
+                  <Library size={28} className="text-white/90" />
+                </div>
+                <h3 className="text-3xl font-bold mb-3">E-Books</h3>
+                <p className="text-white/90 text-base leading-relaxed">
+                  Read books with instant AI-powered translations and audio narration.
+                </p>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 text-base font-semibold bg-white text-accent-600 px-6 py-3 rounded-xl group-hover:bg-white/95 transition-all shadow-lg">
+                  Open Library <ChevronRight size={18} />
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       
       {/* Recent Vocabulary */}
-      <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-slate-800">Recent Vocabulary</h3>
-          <button onClick={() => navigate('/flashcards')} className="text-sm text-primary-600 font-medium hover:underline">View all</button>
+      <div className="bg-gradient-to-br from-slate-50 to-white rounded-3xl p-8 border border-slate-200 shadow-lg">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-2xl font-bold text-slate-800">Recent Vocabulary</h3>
+          <button onClick={() => navigate('/flashcards')} className="text-sm text-primary-600 font-semibold hover:underline px-4 py-2 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors">
+            View all →
+          </button>
         </div>
         {recentWords.length === 0 ? (
-          <div className="text-center py-8 text-slate-400">
-            <p>No vocabulary learned yet</p>
-            <p className="text-sm mt-1">Start learning with flashcards!</p>
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">📖</div>
+            <p className="text-slate-400 text-lg">No vocabulary learned yet</p>
+            <p className="text-sm text-slate-400 mt-2">Start learning with flashcards to build your vocabulary!</p>
           </div>
         ) : (
           <div className="space-y-3">
             {recentWords.map((item, i) => (
               <div 
                 key={i} 
-                className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-100 shadow-educational cursor-pointer hover:border-primary-300 hover:shadow-educational-lg transition-all"
+                className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-100 shadow-sm cursor-pointer hover:border-primary-300 hover:shadow-md transition-all group"
                 onClick={() => navigate('/flashcards')}
               >
-                <div>
-                  <p className="font-bold text-slate-800">{item.word}</p>
-                  <p className="text-xs text-slate-500">
-                    Mastery: {item.mastery_level === 3 ? '⭐ Mastered' : item.mastery_level === 2 ? '✓ Known' : '📝 Learning'}
-                  </p>
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
+                    item.mastery_level === 3 ? 'bg-success-100' : 
+                    item.mastery_level === 2 ? 'bg-primary-100' : 
+                    'bg-secondary-100'
+                  }`}>
+                    {item.mastery_level === 3 ? '⭐' : item.mastery_level === 2 ? '✓' : '📝'}
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-800 text-lg group-hover:text-primary-600 transition-colors">{item.word}</p>
+                    <p className="text-sm text-slate-500">
+                      {item.mastery_level === 3 ? 'Mastered' : item.mastery_level === 2 ? 'Known' : 'Learning'}
+                    </p>
+                  </div>
                 </div>
-                <div className={`h-2 w-2 rounded-full ${
-                  item.mastery_level === 3 ? 'bg-success-500' : 
-                  item.mastery_level === 2 ? 'bg-primary-500' : 
-                  'bg-secondary-500'
-                }`}></div>
+                <ChevronRight className="text-slate-400 group-hover:text-primary-600 transition-colors" size={20} />
               </div>
             ))}
           </div>

@@ -51,7 +51,6 @@ export const authHelpers = {
           {
             id: data.user.id,
             username,
-            xp_points: 0,
             current_streak: 0,
             last_study_date: new Date().toISOString().split('T')[0]
           }

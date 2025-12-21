@@ -12,11 +12,6 @@ const Dashboard = lazy(() => import('./components/features/Dashboard'));
 const TextAnalyzer = lazy(() => import('./components/features/TextAnalyzer'));
 const GermanTutor = lazy(() => import('./components/features/GermanTutor'));
 const Flashcards = lazy(() => import('./components/features/Flashcards'));
-const Listening = lazy(() => import('./components/features/courses/Listening'));
-const Reading = lazy(() => import('./components/features/courses/Reading'));
-const Writing = lazy(() => import('./components/features/courses/Writing'));
-const Speaking = lazy(() => import('./components/features/courses/Speaking'));
-const GrammarAwareness = lazy(() => import('./components/features/courses/GrammarAwareness'));
 const LearningLevel = lazy(() => import('./components/features/stats/LearningLevel'));
 const Settings = lazy(() => import('./components/features/Settings'));
 const EbookLibrary = lazy(() => import('./components/features/ebooks/EbookLibrary'));
@@ -83,11 +78,6 @@ const App = () => {
                   <Route path="/flashcards" element={<Flashcards language={currentLanguage} interfaceLanguage={interfaceLanguage} />} />
                   <Route path="/ebooks" element={<EbookLibrary currentLanguage={currentLanguage} />} />
                   <Route path="/ebooks/:bookId" element={<EbookReader currentLanguage={currentLanguage} interfaceLanguage={interfaceLanguage} />} />
-                  <Route path="/courses/listening" element={<Listening interfaceLanguage={interfaceLanguage} />} />
-                  <Route path="/courses/reading" element={<Reading interfaceLanguage={interfaceLanguage} />} />
-                  <Route path="/courses/writing" element={<Writing interfaceLanguage={interfaceLanguage} />} />
-                  <Route path="/courses/speaking" element={<Speaking interfaceLanguage={interfaceLanguage} />} />
-                  <Route path="/courses/grammar" element={<GrammarAwareness interfaceLanguage={interfaceLanguage} />} />
                   <Route path="/stats/learning-level" element={<LearningLevel interfaceLanguage={interfaceLanguage} />} />
                   <Route path="/stats/words-mastered" element={<Navigate to="/stats/learning-level" replace />} />
                   <Route path="/stats/weekly-goals" element={<Navigate to="/stats/learning-level" replace />} />

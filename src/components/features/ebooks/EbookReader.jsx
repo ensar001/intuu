@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, BookMarked, Settings, Type, Volume2, VolumeX, Pause, Play } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, BookMarked, Settings, Type, Volume2, VolumeX, Pause, Play, CheckCircle2 } from 'lucide-react';
 import Button from '../../ui/Button';
 import Card from '../../ui/Card';
 import TranslationPopover from './TranslationPopover';
-import { getBookById, updateReadingProgress } from '../../../utils/ebookApi';
+import { getBookById, updateReadingProgress, markBookComplete } from '../../../utils/ebookApi';
 import { useAuth } from '../../../contexts/AuthContext';
 import { supabase } from '../../../utils/supabaseClient';
+import userStatsApi from '../../../utils/userStatsApi';
 
 const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
   const { bookId } = useParams();
@@ -33,6 +34,7 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
   const [highlightedSentenceIndex, setHighlightedSentenceIndex] = useState(-1);
   const [pageSentences, setPageSentences] = useState([]);
   const [speechMarks, setSpeechMarks] = useState([]);
+  const [isFinishing, setIsFinishing] = useState(false);
 
   useEffect(() => {
     loadBook();
@@ -112,6 +114,39 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
     if (book && currentPage < book.total_pages) {
       setCurrentPage(prev => prev + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleFinishBook = async () => {
+    if (!book || !user || isFinishing) return;
+
+    try {
+      setIsFinishing(true);
+      
+      // Mark book as complete in database
+      await markBookComplete(book.id);
+      
+      // Record activity for streak tracking
+      await userStatsApi.recordActivity(user.id, 'flashcard_reviews', 1);
+      
+      // Show success message
+      const confirmed = confirm(
+        `🎉 Congratulations! You've finished "${book.title}"!\n\n` +
+        `This counts toward your daily learning streak. Keep it up! 🔥\n\n` +
+        `Return to library?`
+      );
+      
+      if (confirmed) {
+        navigate('/ebooks');
+      } else {
+        // Reload book to show completed status
+        await loadBook();
+      }
+    } catch (error) {
+      console.error('Failed to finish book:', error);
+      alert('Failed to mark book as complete. Please try again.');
+    } finally {
+      setIsFinishing(false);
     }
   };
 
@@ -243,7 +278,6 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
       
       if (targetSentenceIndex !== highlightedSentenceIndex) {
         const timingMethod = speechMarks.length > 0 ? 'AWS Polly' : 'estimate';
-        console.log(`[Highlight] Sentence ${targetSentenceIndex + 1}/${pageSentences.length} at ${(currentTime/1000).toFixed(1)}s (${timingMethod})`);
         setHighlightedSentenceIndex(targetSentenceIndex);
       }
     }
@@ -550,14 +584,26 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
                 </div>
               </div>
 
-              <Button
-                variant="secondary"
-                onClick={handleNextPage}
-                disabled={currentPage === book.total_pages}
-              >
-                Next
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
+              {currentPage === book.total_pages ? (
+                <Button
+                  variant="primary"
+                  icon={CheckCircle2}
+                  onClick={handleFinishBook}
+                  disabled={isFinishing || book.completed}
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                >
+                  {isFinishing ? 'Finishing...' : book.completed ? 'Completed ✓' : 'Finish Reading'}
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  onClick={handleNextPage}
+                  disabled={currentPage === book.total_pages}
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              )}
             </div>
           </div>
         </Card>

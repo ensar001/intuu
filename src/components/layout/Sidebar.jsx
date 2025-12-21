@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BarChart2, Brain, MessageSquare, BookOpen, Settings, X, ChevronDown, ChevronRight, Headphones, BookText, PenTool, Mic, GraduationCap, TrendingUp, Library } from 'lucide-react';
+import { BarChart2, Brain, MessageSquare, BookOpen, Settings, X, TrendingUp, Library } from 'lucide-react';
 import { useTranslation } from '../../utils/translations';
 import { useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 
 const Sidebar = ({ isSidebarOpen, setIsSidebarOpen, interfaceLanguage = 'en' }) => {
   const location = useLocation();
-  const [isCoursesOpen, setIsCoursesOpen] = useState(false);
   const [userName, setUserName] = useState('');
   const { t } = useTranslation(interfaceLanguage);
 
@@ -39,21 +38,12 @@ const Sidebar = ({ isSidebarOpen, setIsSidebarOpen, interfaceLanguage = 'en' }) 
     { id: 'stats', label: t('statistics'), icon: TrendingUp, path: '/stats/learning-level' },
   ];
 
-  const courseItems = [
-    { id: 'listening', label: t('listening'), icon: Headphones, path: '/courses/listening' },
-    { id: 'reading', label: t('reading'), icon: BookText, path: '/courses/reading' },
-    { id: 'writing', label: t('writing'), icon: PenTool, path: '/courses/writing' },
-    { id: 'speaking', label: t('speaking'), icon: Mic, path: '/courses/speaking' },
-    { id: 'grammar', label: t('grammarAwareness'), icon: GraduationCap, path: '/courses/grammar' },
-  ];
-
   const isActive = (path) => {
     if (path === '/stats/learning-level') {
       return location.pathname.startsWith('/stats');
     }
     return location.pathname === path;
   };
-  const isCoursesActive = location.pathname.startsWith('/courses');
 
   return (
     <aside className={`
@@ -87,42 +77,6 @@ const Sidebar = ({ isSidebarOpen, setIsSidebarOpen, interfaceLanguage = 'en' }) 
             {item.label}
           </Link>
         ))}
-
-        {/* Courses Section */}
-        <div className="pt-2">
-          <button
-            onClick={() => setIsCoursesOpen(!isCoursesOpen)}
-            className={`
-              w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all
-              ${isCoursesActive ? 'bg-white/20 text-white shadow-lg backdrop-blur-sm' : 'text-white/80 hover:bg-white/10 hover:text-white'}
-            `}
-          >
-            <div className="flex items-center gap-3">
-              <BookOpen size={20} />
-              <span>{t('courses')}</span>
-            </div>
-            {isCoursesOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </button>
-          
-          {isCoursesOpen && (
-            <div className="ml-4 mt-1 space-y-1">
-              {courseItems.map((item) => (
-                <Link
-                  key={item.id}
-                  to={item.path}
-                  onClick={() => setIsSidebarOpen(false)}
-                  className={`
-                    w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all
-                    ${isActive(item.path) ? 'bg-white/15 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'}
-                  `}
-                >
-                  <item.icon size={18} />
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
 
         <Link
           to="/settings"

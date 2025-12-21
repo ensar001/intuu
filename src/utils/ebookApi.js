@@ -310,6 +310,30 @@ export const addBookmark = async (bookId, position) => {
 };
 
 /**
+ * Mark book as completed
+ */
+export const markBookComplete = async (bookId) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_books')
+      .update({
+        completed: true,
+        completed_at: new Date().toISOString(),
+        reading_progress: 100,
+      })
+      .eq('id', bookId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error marking book as complete:', error);
+    throw error;
+  }
+};
+
+/**
  * Delete book
  */
 export const deleteBook = async (bookId) => {
