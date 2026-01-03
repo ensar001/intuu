@@ -32,8 +32,7 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [audioUrl, setAudioUrl] = useState(null);
   const [isCached, setIsCached] = useState(false);
-  const [highlightedSentenceIndex, setHighlightedSentenceIndex] = useState(-1);
-  const [pageSentences, setPageSentences] = useState([]);
+  const [highlightedText, setHighlightedText] = useState(''); // Current sentence text from Polly
   const [speechMarks, setSpeechMarks] = useState([]);
   const [isFinishing, setIsFinishing] = useState(false);
 
@@ -166,7 +165,7 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
     try {
       setIsSynthesizing(true);
       setIsCached(false);
-      setHighlightedSentenceIndex(-1);
+      setHighlightedText('');
       
       // Get current page text without formatting markers
       const pageText = getCurrentPageContent()
@@ -180,10 +179,8 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
         return;
       }
 
-      // Split into sentences for highlighting
-      const sentences = splitIntoSentences(pageText);
-      setPageSentences(sentences);
-      console.log(`[TTS] Prepared ${sentences.length} sentences for highlighting`);
+      // Note: sentences will come from backend for precise matching
+      console.log(`[TTS] Sending text to backend for synthesis and sentence splitting`);
 
       // Get user's auth token from Supabase session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -218,10 +215,14 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
       
       console.log('[TTS] Received:', data);
       console.log('[TTS] Speech marks:', data.speechMarks?.length || 0, 'timing points');
+      if (data.speechMarks?.length > 0) {
+        console.log('[TTS] First mark example:', JSON.stringify(data.speechMarks[0]));
+      }
       
       setAudioUrl(data.audioUrl);
       setIsCached(data.cached);
       setSpeechMarks(data.speechMarks || []);
+      setHighlightedText('');
       setIsPlaying(true);
 
     } catch (error) {
@@ -233,53 +234,25 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
   };
 
   const syncHighlightWithAudio = () => {
-    if (!audioRef.current || !pageSentences.length) return;
+    if (!audioRef.current || !speechMarks.length) return;
     
     const currentTime = audioRef.current.currentTime * 1000; // Convert to milliseconds
-    const duration = audioRef.current.duration;
     
-    if (duration && currentTime > 0) {
-      let targetSentenceIndex = 0;
-      
-      // Use real timing data if available (from AWS Polly speech marks)
-      if (speechMarks && speechMarks.length > 0) {
-        const adjustedTime = currentTime; // Polly marks already reflect real timing
-        
-        for (let i = 0; i < speechMarks.length; i++) {
-          if (adjustedTime >= speechMarks[i].time) {
-            targetSentenceIndex = i;
-          } else {
-            break;
-          }
-        }
+    // Find current sentence from Polly speech marks using timestamps
+    let currentMark = null;
+    for (let i = 0; i < speechMarks.length; i++) {
+      if (currentTime >= speechMarks[i].time) {
+        currentMark = speechMarks[i];
       } else {
-        // Fallback: estimate based on character count
-        const sentenceCharCounts = pageSentences.map(s => s.length);
-        const totalChars = sentenceCharCounts.reduce((sum, count) => sum + count, 0);
-        
-        let accumulatedTime = 0;
-        
-        for (let i = 0; i < pageSentences.length; i++) {
-          const sentenceProportion = sentenceCharCounts[i] / totalChars;
-          const sentenceDuration = sentenceProportion * duration * 1000;
-          
-          if (currentTime >= accumulatedTime && currentTime < accumulatedTime + sentenceDuration) {
-            targetSentenceIndex = i;
-            break;
-          }
-          
-          accumulatedTime += sentenceDuration;
-          
-          if (i === pageSentences.length - 1) {
-            targetSentenceIndex = i;
-          }
-        }
+        break;
       }
-      
-      if (targetSentenceIndex !== highlightedSentenceIndex) {
-        const timingMethod = speechMarks.length > 0 ? 'AWS Polly' : 'estimate';
-        setHighlightedSentenceIndex(targetSentenceIndex);
-      }
+    }
+    
+    // Update highlighted text if changed
+    const newText = currentMark?.value || '';
+    if (newText !== highlightedText) {
+      console.log(`[TTS Sync] time=${Math.round(currentTime)}ms, highlighting: "${newText.substring(0, 50)}..."`);
+      setHighlightedText(newText);
     }
     
     if (isPlaying) {
@@ -309,8 +282,8 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
       audioRef.current.currentTime = 0;
     }
     setIsPlaying(false);
-    setAudioUrl(null); // No need to revoke URL, it's from Supabase Storage
-    setHighlightedSentenceIndex(-1);
+    setAudioUrl(null);
+    setHighlightedText('');
     setSpeechMarks([]);
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -520,37 +493,28 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
                 return <div key={index} className="h-4" />;
               }
               // Regular paragraphs with sentence-level highlighting
-              const textContent = line;
-              const sentences = splitIntoSentences(textContent);
-
-              // Calculate starting sentence index for this line
-              const allPreviousText = getCurrentPageContent()
-                .replace(/###\s/g, '')
-                .replace(/---/g, '')
-                .replace(/\n\n+/g, '\n')
-                .trim()
-                .split('\n')
-                .slice(0, index)
-                .join(' ');
-              const previousSentences = splitIntoSentences(allPreviousText);
-              const startingSentenceIndex = previousSentences.length;
+              const lineText = line.trim();
+              const lineSentences = splitIntoSentences(lineText);
 
               return (
                 <p key={index} className="text-slate-800 mb-2 text-justify leading-relaxed">
-                  {sentences.map((sentence, sentIndex) => {
-                    const globalSentenceIndex = startingSentenceIndex + sentIndex;
-                    const isHighlighted = globalSentenceIndex === highlightedSentenceIndex;
+                  {lineSentences.map((sentence, sentIndex) => {
+                    // Check if this sentence matches the currently highlighted text from Polly
+                    // Use includes for more forgiving match (Polly may have slight variations)
+                    const sentenceNorm = sentence.trim().toLowerCase().replace(/\s+/g, ' ');
+                    const highlightNorm = highlightedText?.trim().toLowerCase().replace(/\s+/g, ' ') || '';
+                    const isHighlighted = highlightNorm && (
+                      sentenceNorm === highlightNorm ||
+                      sentenceNorm.includes(highlightNorm) ||
+                      highlightNorm.includes(sentenceNorm)
+                    );
                     
                     return (
-                      <span
+                      <span 
                         key={sentIndex}
-                        className={`transition-all duration-300 ${
-                          isHighlighted 
-                            ? 'bg-yellow-200 text-slate-900 font-medium shadow-sm px-1 rounded' 
-                            : ''
-                        }`}
+                        className={isHighlighted ? 'bg-yellow-300 px-1 rounded' : ''}
                       >
-                        {sentence}
+                        {sentence}{' '}
                       </span>
                     );
                   })}
@@ -623,7 +587,7 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
           src={audioUrl}
           onEnded={() => {
             setIsPlaying(false);
-            setHighlightedSentenceIndex(-1);
+            setHighlightedText('');
           }}
           onPlay={() => {
             setIsPlaying(true);

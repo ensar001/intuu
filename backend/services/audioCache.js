@@ -123,6 +123,72 @@ export const audioCache = {
   },
 
   /**
+   * Store speech marks JSON alongside audio
+   * @param {string} cacheKey - Cache key from generateCacheKey() (will replace .mp3 with .json)
+   * @param {Array} speechMarks - Speech marks array from Polly
+   * @param {string} userToken - User JWT token
+   */
+  storeSpeechMarks: async (cacheKey, speechMarks, userToken) => {
+    try {
+      const supabase = getSupabaseClient(userToken);
+      if (!supabase) return { success: false };
+
+      const jsonKey = cacheKey.replace('.mp3', '.json');
+      const jsonBuffer = Buffer.from(JSON.stringify(speechMarks));
+
+      const { error } = await supabase.storage
+        .from(BUCKET_NAME)
+        .upload(jsonKey, jsonBuffer, {
+          contentType: 'application/json',
+          cacheControl: '2592000',
+          upsert: true
+        });
+
+      if (error) {
+        console.error('[AudioCache] Error storing speech marks:', error);
+        return { success: false };
+      }
+
+      console.log('[AudioCache] Speech marks stored:', jsonKey);
+      return { success: true };
+    } catch (error) {
+      console.error('[AudioCache] Exception storing speech marks:', error);
+      return { success: false };
+    }
+  },
+
+  /**
+   * Retrieve speech marks from cache
+   * @param {string} cacheKey - Cache key (will replace .mp3 with .json)
+   * @param {string} userToken - User JWT token
+   */
+  getSpeechMarks: async (cacheKey, userToken) => {
+    try {
+      const supabase = getSupabaseClient(userToken);
+      if (!supabase) return { success: false, speechMarks: [] };
+
+      const jsonKey = cacheKey.replace('.mp3', '.json');
+
+      const { data, error } = await supabase.storage
+        .from(BUCKET_NAME)
+        .download(jsonKey);
+
+      if (error) {
+        console.log('[AudioCache] No cached speech marks found:', jsonKey);
+        return { success: false, speechMarks: [] };
+      }
+
+      const text = await data.text();
+      const speechMarks = JSON.parse(text);
+      console.log('[AudioCache] Speech marks retrieved:', jsonKey, speechMarks.length, 'marks');
+      return { success: true, speechMarks };
+    } catch (error) {
+      console.error('[AudioCache] Exception getting speech marks:', error);
+      return { success: false, speechMarks: [] };
+    }
+  },
+
+  /**
    * Delete audio file from cache
    * @param {string} cacheKey - Cache key to delete
    * @param {string} userToken - User JWT token for authenticated deletion

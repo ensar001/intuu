@@ -245,10 +245,16 @@ router.post('/synthesize-chunked', authMiddleware, async (req, res) => {
     
     if (exists && url) {
       console.log(`[TTS] Cache HIT (chunked): ${cacheKey}`);
+      
+      // Also retrieve cached speech marks
+      const { speechMarks: cachedMarks } = await audioCache.getSpeechMarks(cacheKey, userToken);
+      
       return res.json({ 
         audioUrl: url, 
         cached: true,
-        cacheKey 
+        cacheKey,
+        speechMarks: cachedMarks || [],
+        sentences: [] // Not stored in cache, but marks have value field
       });
     }
 
@@ -345,6 +351,11 @@ router.post('/synthesize-chunked', authMiddleware, async (req, res) => {
     // Store in cache
     const { success, url: cachedUrl, error: cacheError } = await audioCache.storeAudio(cacheKey, finalAudio, userToken);
 
+    // Also store speech marks
+    if (success) {
+      await audioCache.storeSpeechMarks(cacheKey, allSpeechMarks, userToken);
+    }
+
     if (!success) {
       console.error('[TTS] Failed to cache audio:', cacheError);
       // Still return the audio even if caching fails
@@ -356,14 +367,15 @@ router.post('/synthesize-chunked', authMiddleware, async (req, res) => {
       return res.send(finalAudio);
     }
 
-    // Return cached URL with timing data
+    // Return cached URL with timing data AND sentence texts for precise highlighting
     res.json({ 
       audioUrl: cachedUrl, 
       cached: false,
       cacheKey,
       chunks: chunks.length,
       size: finalAudio.length,
-      speechMarks: allSpeechMarks // Include timing data
+      speechMarks: allSpeechMarks, // Include timing data
+      sentences: sentences // Include exact sentence texts used for TTS
     });
 
   } catch (error) {
