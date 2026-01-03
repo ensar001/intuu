@@ -7,7 +7,8 @@ import TranslationPopover from './TranslationPopover';
 import { getBookById, updateReadingProgress, markBookComplete } from '../../../utils/ebookApi';
 import { useAuth } from '../../../contexts/AuthContext';
 import { supabase } from '../../../utils/supabaseClient';
-import userStatsApi from '../../../utils/userStatsApi';
+import { userStatsApi } from '../../../utils/userStatsApi';
+import { splitIntoSentences } from '../../../utils/textUtils';
 
 const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
   const { bookId } = useParams();
@@ -180,7 +181,7 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
       }
 
       // Split into sentences for highlighting
-      const sentences = pageText.match(/[^.!?]+[.!?]+/g) || [pageText];
+      const sentences = splitIntoSentences(pageText);
       setPageSentences(sentences);
       console.log(`[TTS] Prepared ${sentences.length} sentences for highlighting`);
 
@@ -193,6 +194,7 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
       }
 
       const token = session.access_token;
+      const playbackLanguage = book?.language || currentLanguage || 'en';
 
       const response = await fetch('http://localhost:3001/api/tts/synthesize-chunked', {
         method: 'POST',
@@ -202,7 +204,7 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
         },
         body: JSON.stringify({
           text: pageText,
-          language: book.language || 'de'
+          language: playbackLanguage
         })
       });
 
@@ -241,10 +243,8 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
       
       // Use real timing data if available (from AWS Polly speech marks)
       if (speechMarks && speechMarks.length > 0) {
-        // Add 350ms delay so sentence is highlighted while it's being actively spoken
-        const adjustedTime = currentTime - 350;
+        const adjustedTime = currentTime; // Polly marks already reflect real timing
         
-        // Find which sentence we're currently on based on speech marks
         for (let i = 0; i < speechMarks.length; i++) {
           if (adjustedTime >= speechMarks[i].time) {
             targetSentenceIndex = i;
@@ -521,7 +521,7 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
               }
               // Regular paragraphs with sentence-level highlighting
               const textContent = line;
-              const sentences = textContent.match(/[^.!?]+[.!?]+/g) || [textContent];
+              const sentences = splitIntoSentences(textContent);
 
               // Calculate starting sentence index for this line
               const allPreviousText = getCurrentPageContent()
@@ -532,7 +532,7 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
                 .split('\n')
                 .slice(0, index)
                 .join(' ');
-              const previousSentences = allPreviousText.match(/[^.!?]+[.!?]+/g) || [];
+              const previousSentences = splitIntoSentences(allPreviousText);
               const startingSentenceIndex = previousSentences.length;
 
               return (

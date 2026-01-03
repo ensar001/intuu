@@ -35,73 +35,53 @@ export const parsePdfFile = async (file) => {
     reader.onload = async (e) => {
       try {
         const arrayBuffer = e.target.result;
-        
-        // Load the PDF document
         const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
         const pdf = await loadingTask.promise;
-        
+
         let fullText = '';
-        
-        // Extract text from each page with better formatting
+
+        // Extract text preserving the source order to avoid dropping fragments
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
           const page = await pdf.getPage(pageNum);
           const textContent = await page.getTextContent();
-          
-          // Group text items by their Y position to detect lines
-          const lines = {};
-          textContent.items.forEach(item => {
-            const y = Math.round(item.transform[5]); // Y position
-            if (!lines[y]) {
-              lines[y] = [];
+
+          let pageText = '';
+
+          textContent.items.forEach((item, idx) => {
+            pageText += item.str;
+
+            // Keep natural spacing; pdf.js sets hasEOL at line ends
+            if (item.hasEOL) {
+              pageText += '\n';
+              return;
             }
-            lines[y].push(item);
-          });
-          
-          // Sort lines by Y position (top to bottom)
-          const sortedYPositions = Object.keys(lines).sort((a, b) => b - a);
-          
-          let previousY = null;
-          let previousFontSize = null;
-          let isFirstLine = true;
-          
-          sortedYPositions.forEach(y => {
-            const lineItems = lines[y].sort((a, b) => a.transform[4] - b.transform[4]); // Sort by X position
-            const lineText = lineItems.map(item => item.str).join(' ').trim();
-            
-            if (lineText) {
-              const fontSize = lineItems[0].height || 12;
-              const yGap = previousY ? previousY - y : 0;
-              
-              // Only mark the first line on page 1 as title if it's substantial text
-              if (isFirstLine && pageNum === 1 && lineText.length > 5 && lineText.length < 100) {
-                fullText += '### ';
-                isFirstLine = false;
-              }
-              // Detect paragraph breaks (larger vertical gap)
-              else if (yGap > fontSize * 1.5) {
-                fullText += '\n\n';
-              }
-              // Very conservative heading detection: only if significantly larger (40%+) and short
-              else if (previousFontSize && fontSize > previousFontSize * 1.4 && lineText.length < 80) {
-                fullText += '\n\n### ';
-              }
-              
-              fullText += lineText + '\n';
-              previousY = y;
-              previousFontSize = fontSize;
+
+            const next = textContent.items[idx + 1];
+            const nextIsPunctuation = next && /^[.,!?;:)\]]/.test(next.str);
+            const currentHasTrailingSpace = /\s$/.test(item.str);
+            const nextHasLeadingSpace = next && /^\s/.test(next.str);
+
+            if (!currentHasTrailingSpace && !nextHasLeadingSpace && !nextIsPunctuation) {
+              pageText += ' ';
             }
           });
-          
-          // Add page break
+
+          // Fix common layout artifacts: de-hyphenate line breaks and unwrap single newlines
+          pageText = pageText
+            .replace(/([A-Za-z0-9])-\n([A-Za-z0-9])/g, '$1$2')
+            .replace(/\n(?!\n)/g, ' ')
+            .replace(/ {2,}/g, ' ');
+
+          fullText += pageText.trim();
+
           if (pageNum < pdf.numPages) {
             fullText += '\n\n---\n\n';
           }
         }
-        
-        // Clean up excessive whitespace but preserve paragraph structure
+
         fullText = fullText
-          .replace(/\n{4,}/g, '\n\n\n')  // Max 3 newlines
-          .replace(/[ \t]+/g, ' ')        // Single spaces
+          .replace(/\n{3,}/g, '\n\n')   // limit blank lines
+          .replace(/[ \t]+/g, ' ')      // normalize spaces
           .trim();
         
         if (!fullText || fullText.length < 10) {

@@ -2,6 +2,7 @@ import express from 'express';
 import { PollyClient, SynthesizeSpeechCommand } from '@aws-sdk/client-polly';
 import { authenticateUser } from '../middleware/auth.js';
 import { audioCache } from '../services/audioCache.js';
+import { splitIntoSentences } from '../utils/text.js';
 
 const router = express.Router();
 
@@ -258,7 +259,7 @@ router.post('/synthesize-chunked', authMiddleware, async (req, res) => {
     const maxLength = engine === 'neural' ? 500 : 2800; // Leave buffer for sentence breaks
 
     // Split text into sentences
-    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    const sentences = splitIntoSentences(text);
     const chunks = [];
     let currentChunk = '';
 
@@ -317,21 +318,22 @@ router.post('/synthesize-chunked', authMiddleware, async (req, res) => {
       const marksText = Buffer.concat(marksBuffers).toString('utf-8');
       
       // Parse speech marks (newline-delimited JSON)
-      const marks = marksText
+      const rawMarks = marksText
         .trim()
         .split('\n')
         .filter(line => line.trim())
-        .map(line => JSON.parse(line))
-        .map(mark => ({
-          ...mark,
-          time: mark.time + cumulativeTimeOffset // Adjust for chunk offset
-        }));
+        .map(line => JSON.parse(line));
+
+      const chunkDuration = rawMarks.length
+        ? rawMarks[rawMarks.length - 1].time + 500 // Polly marks are real times; add small pad
+        : Math.max(((chunks[i].length / 5) / 150) * 60 * 1000, 500);
+
+      const marks = rawMarks.map(mark => ({
+        ...mark,
+        time: mark.time + cumulativeTimeOffset // Adjust for chunk offset
+      }));
 
       allSpeechMarks.push(...marks);
-
-      // Estimate chunk duration (roughly 150 words per minute for audio duration)
-      // This is approximate, but used for offsetting subsequent chunks
-      const chunkDuration = (chunks[i].length / 5) / 150 * 60 * 1000; // milliseconds
       cumulativeTimeOffset += chunkDuration;
     }
 
