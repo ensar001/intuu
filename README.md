@@ -61,7 +61,7 @@ intuu/
 - 📝 Text Analyzer with AI corrections
 - 💬 Language Tutor chatbot
 - 🎴 Flashcards with backend storage
-- 📚 Course sections (Listening, Reading, Writing, Speaking, Grammar)
+- 📚 E-book Reader with on-click translation and TTS features
 - 📊 Statistics tracking
 - 🌍 Multi-language support (English/German)
 - 🚀 Interface language selection (Turkish/German/English)
