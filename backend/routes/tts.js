@@ -247,7 +247,8 @@ router.post('/synthesize-chunked', authMiddleware, async (req, res) => {
       console.log(`[TTS] Cache HIT (chunked): ${cacheKey}`);
       
       // Also retrieve cached speech marks
-      const { speechMarks: cachedMarks } = await audioCache.getSpeechMarks(cacheKey, userToken);
+      const { success: marksSuccess, speechMarks: cachedMarks } = await audioCache.getSpeechMarks(cacheKey, userToken);
+      console.log(`[TTS] Speech marks retrieval: success=${marksSuccess}, count=${cachedMarks?.length || 0}`);
       
       return res.json({ 
         audioUrl: url, 

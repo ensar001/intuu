@@ -71,7 +71,8 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public;
 
 -- Recreate trigger
 CREATE TRIGGER trigger_update_streak_goals

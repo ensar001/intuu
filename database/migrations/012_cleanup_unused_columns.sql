@@ -31,3 +31,5 @@ SELECT
   MAX(last_reviewed_at) as last_review_date
 FROM learned_words
 GROUP BY user_id;
+
+ALTER VIEW user_word_stats SET (security_invoker = true);

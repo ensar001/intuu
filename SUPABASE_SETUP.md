@@ -113,6 +113,12 @@ By default, Supabase requires email confirmation. To disable during development:
 2. Scroll to **Email Auth**
 3. Toggle off "Enable email confirmations"
 
+### Enable compromised password protection
+Supabase can block known-compromised passwords using HaveIBeenPwned.org:
+1. Go to **Authentication** > **Settings**
+2. Find **Security** (or **Password Protection**)
+3. Enable **Check passwords against HaveIBeenPwned**
+
 ## Database Schema Reference
 
 ### profiles

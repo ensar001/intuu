@@ -48,7 +48,8 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public;
 
 -- Create triggers for updated_at
 CREATE TRIGGER update_profiles_updated_at
@@ -85,7 +86,7 @@ CREATE POLICY "Users can update own profile"
 -- Users can insert their own profile (allow during signup)
 CREATE POLICY "Users can insert own profile"
   ON profiles FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (auth.uid() = id);
 
 -- RLS Policies for decks
 -- Users can view their own decks

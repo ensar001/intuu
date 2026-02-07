@@ -133,7 +133,8 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public;
 
 -- Create trigger for streak and goal updates
 DROP TRIGGER IF EXISTS trigger_update_streak_goals ON user_activities;

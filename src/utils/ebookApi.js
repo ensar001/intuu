@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import * as pdfjsLib from 'pdfjs-dist';
+import ePub from 'epubjs';
 
 // Configure PDF.js worker - use local worker from node_modules
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -27,7 +28,7 @@ export const parseTxtFile = async (file) => {
 };
 
 /**
- * Parse PDF file (basic extraction - requires pdf.js library)
+ * Parse PDF file (improved extraction with better text flow)
  */
 export const parsePdfFile = async (file) => {
   return new Promise((resolve, reject) => {
@@ -39,49 +40,103 @@ export const parsePdfFile = async (file) => {
         const pdf = await loadingTask.promise;
 
         let fullText = '';
+        let isFirstHeading = true;
 
-        // Extract text preserving the source order to avoid dropping fragments
+        // Extract text preserving the source order
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
           const page = await pdf.getPage(pageNum);
           const textContent = await page.getTextContent();
 
-          let pageText = '';
-
-          textContent.items.forEach((item, idx) => {
-            pageText += item.str;
-
-            // Keep natural spacing; pdf.js sets hasEOL at line ends
-            if (item.hasEOL) {
-              pageText += '\n';
-              return;
+          // Group items by Y position to detect lines
+          const lines = {};
+          
+          textContent.items.forEach((item) => {
+            const y = Math.round(item.transform[5]);
+            if (!lines[y]) {
+              lines[y] = [];
             }
+            lines[y].push({
+              text: item.str,
+              x: item.transform[4],
+              height: item.height,
+              fontSize: item.height
+            });
+          });
 
-            const next = textContent.items[idx + 1];
-            const nextIsPunctuation = next && /^[.,!?;:)\]]/.test(next.str);
-            const currentHasTrailingSpace = /\s$/.test(item.str);
-            const nextHasLeadingSpace = next && /^\s/.test(next.str);
+          // Sort lines by Y position (top to bottom)
+          const sortedY = Object.keys(lines).sort((a, b) => b - a);
+          
+          let pageText = '';
+          let lastY = null;
+          let lastFontSize = null;
 
-            if (!currentHasTrailingSpace && !nextHasLeadingSpace && !nextIsPunctuation) {
-              pageText += ' ';
+          sortedY.forEach((y) => {
+            const lineItems = lines[y].sort((a, b) => a.x - b.x);
+            const avgFontSize = lineItems.reduce((sum, item) => sum + item.fontSize, 0) / lineItems.length;
+            
+            // Check if this is a heading (larger font or first line of book)
+            const isHeading = isFirstHeading && pageNum === 1 && pageText.length === 0;
+            
+            // Build line text
+            let lineText = '';
+            lineItems.forEach((item, idx) => {
+              lineText += item.text;
+              
+              // Add space if needed
+              const next = lineItems[idx + 1];
+              if (next && !/\s$/.test(item.text) && !/^\s/.test(next.text)) {
+                lineText += ' ';
+              }
+            });
+            
+            lineText = lineText.trim();
+            
+            if (lineText.length > 0) {
+              // Add paragraph breaks based on vertical spacing
+              if (lastY !== null && Math.abs(lastY - parseInt(y)) > avgFontSize * 2) {
+                pageText += '\n\n';
+              } else if (pageText.length > 0) {
+                // Check if line ends with hyphen (word split across lines)
+                if (pageText.endsWith('-')) {
+                  pageText = pageText.slice(0, -1); // Remove hyphen
+                  // Don't add space, join directly
+                } else if (!pageText.endsWith('\n')) {
+                  pageText += ' ';
+                }
+              }
+              
+              // Format as heading if needed
+              if (isHeading) {
+                pageText += '### ' + lineText;
+                isFirstHeading = false;
+              } else {
+                pageText += lineText;
+              }
+              
+              lastY = parseInt(y);
+              lastFontSize = avgFontSize;
             }
           });
 
-          // Fix common layout artifacts: de-hyphenate line breaks and unwrap single newlines
+          // Clean and normalize page text
           pageText = pageText
-            .replace(/([A-Za-z0-9])-\n([A-Za-z0-9])/g, '$1$2')
-            .replace(/\n(?!\n)/g, ' ')
-            .replace(/ {2,}/g, ' ');
+            .replace(/[ \t]{2,}/g, ' ')           // Normalize spaces
+            .replace(/\n{3,}/g, '\n\n')           // Limit blank lines
+            .replace(/([a-zä-ü])- ([a-zä-ü])/gi, '$1$2')  // Fix hyphenation
+            .trim();
 
-          fullText += pageText.trim();
+          fullText += pageText;
 
+          // Add page separator
           if (pageNum < pdf.numPages) {
             fullText += '\n\n---\n\n';
           }
         }
 
+        // Final cleanup
         fullText = fullText
-          .replace(/\n{3,}/g, '\n\n')   // limit blank lines
-          .replace(/[ \t]+/g, ' ')      // normalize spaces
+          .replace(/\n{3,}/g, '\n\n')
+          .replace(/[ \t]+/g, ' ')
           .trim();
         
         if (!fullText || fullText.length < 10) {
@@ -104,27 +159,117 @@ export const parsePdfFile = async (file) => {
 };
 
 /**
- * Parse EPUB file (basic extraction)
+ * Parse EPUB file (proper extraction using epubjs)
  */
 export const parseEpubFile = async (file) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const book = ePub(arrayBuffer);
+    
+    // Wait for book to be ready
+    await book.ready;
+    
+    // Get metadata
+    const metadata = await book.loaded.metadata;
+    const spine = await book.loaded.spine;
+    
+    let fullText = '';
+    let chapterCount = 0;
+    
+    // Extract text from each spine item (chapter/section)
+    for (let item of spine.items) {
       try {
-        // Basic EPUB parsing - in production use epubjs library
-        const text = e.target.result;
-        resolve({
-          content: text,
-          title: file.name.replace('.epub', ''),
-          author: 'Unknown',
-        });
-      } catch (error) {
-        reject(error);
+        const doc = await book.load(item.href);
+        
+        // Extract text content from the document
+        let chapterText = '';
+        
+        if (doc.body) {
+          // Get all text nodes, preserving structure
+          const extractText = (element) => {
+            let text = '';
+            
+            for (let node of element.childNodes) {
+              if (node.nodeType === Node.TEXT_NODE) {
+                const content = node.textContent.trim();
+                if (content) {
+                  text += content + ' ';
+                }
+              } else if (node.nodeType === Node.ELEMENT_NODE) {
+                const tagName = node.tagName?.toLowerCase();
+                
+                // Handle headings
+                if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) {
+                  text += '\n\n### ' + node.textContent.trim() + '\n\n';
+                }
+                // Handle paragraphs and divs
+                else if (['p', 'div'].includes(tagName)) {
+                  const content = extractText(node).trim();
+                  if (content) {
+                    text += content + '\n\n';
+                  }
+                }
+                // Handle line breaks
+                else if (tagName === 'br') {
+                  text += '\n';
+                }
+                // Handle lists
+                else if (tagName === 'li') {
+                  text += '• ' + extractText(node).trim() + '\n';
+                }
+                // Recursively process other elements
+                else {
+                  text += extractText(node);
+                }
+              }
+            }
+            
+            return text;
+          };
+          
+          chapterText = extractText(doc.body);
+        } else {
+          // Fallback to textContent
+          chapterText = doc.textContent || '';
+        }
+        
+        chapterText = chapterText
+          .replace(/\n{3,}/g, '\n\n')      // Limit blank lines
+          .replace(/[ \t]{2,}/g, ' ')      // Normalize spaces
+          .trim();
+        
+        if (chapterText.length > 0) {
+          if (chapterCount > 0) {
+            fullText += '\n\n---\n\n'; // Chapter separator
+          }
+          fullText += chapterText;
+          chapterCount++;
+        }
+      } catch (chapterError) {
+        console.warn(`Failed to parse EPUB chapter ${item.href}:`, chapterError);
+        // Continue with next chapter
       }
+    }
+    
+    // Clean up the full text
+    fullText = fullText
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/[ \t]+/g, ' ')
+      .trim();
+    
+    if (!fullText || fullText.length < 50) {
+      throw new Error('Could not extract text from EPUB. The file might be corrupted or image-based.');
+    }
+    
+    return {
+      content: fullText,
+      title: metadata.title || file.name.replace('.epub', ''),
+      author: metadata.creator || 'Unknown',
     };
-    reader.onerror = reject;
-    reader.readAsText(file);
-  });
+  } catch (error) {
+    console.error('EPUB parsing error:', error);
+    throw new Error('Failed to parse EPUB: ' + error.message);
+  }
 };
 
 /**
@@ -172,8 +317,9 @@ export const uploadEbook = async (file, userId, language = 'de') => {
       parsedData = await parseEpubFile(file);
     }
 
-    // Calculate approximate pages (assuming 2000 chars per page)
-    const totalPages = Math.ceil(parsedData.content.length / 2000);
+    // Calculate pages based on words (350 words per page)
+    const wordsPerPage = 350;
+    const totalPages = Math.ceil(parsedData.content.split(/\s+/).length / wordsPerPage);
 
     // Save to database
     const { data, error } = await supabase

@@ -98,8 +98,26 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
 
   const getCurrentPageContent = () => {
     if (!book) return '';
-    const start = (currentPage - 1) * charsPerPage;
-    const end = start + charsPerPage;
+    
+    // Character-based with word boundary snapping to avoid splitting words
+    const charsPerPage = 2000;
+    let start = (currentPage - 1) * charsPerPage;
+    let end = start + charsPerPage;
+    
+    // Snap to nearest word boundary at start
+    if (start > 0 && start < book.content.length) {
+      while (start > 0 && !/\s/.test(book.content[start - 1])) {
+        start--;
+      }
+    }
+    
+    // Snap to nearest word boundary at end
+    if (end < book.content.length) {
+      while (end < book.content.length && !/\s/.test(book.content[end])) {
+        end++;
+      }
+    }
+    
     return book.content.slice(start, end);
   };
 
@@ -172,6 +190,11 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
         .replace(/###\s/g, '') // Remove heading markers
         .replace(/---/g, '') // Remove page break markers
         .replace(/\n\n+/g, '\n') // Reduce multiple newlines
+        // Aggressively clean punctuation to prevent pronunciation
+        .replace(/[""''«»„‟]/g, ' ') // Replace all quotation marks with space
+        .replace(/[.,;:!?\-—–]/g, ' ') // Replace punctuation with space
+        .replace(/[\*_`~\[\]\(\){}]/g, '') // Remove emphasis/formatting marks
+        .replace(/\s+/g, ' ') // Collapse multiple spaces into one
         .trim();
 
       if (!pageText) {
@@ -251,7 +274,6 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
     // Update highlighted text if changed
     const newText = currentMark?.value || '';
     if (newText !== highlightedText) {
-      console.log(`[TTS Sync] time=${Math.round(currentTime)}ms, highlighting: "${newText.substring(0, 50)}..."`);
       setHighlightedText(newText);
     }
     
@@ -458,46 +480,62 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
             className="prose prose-slate max-w-none select-text"
             style={{
               fontSize: `${fontSize}px`,
-              lineHeight: '1.8',
+              lineHeight: '1.9',
               userSelect: 'text',
               WebkitUserSelect: 'text',
               MozUserSelect: 'text',
+              fontFamily: 'Georgia, "Times New Roman", serif',
+              letterSpacing: '0.01em',
             }}
           >
             {getCurrentPageContent().split('\n').map((line, index) => {
-              // Detect headings (lines starting with ### or trimmed line starts with ###)
               const trimmedLine = line.trim();
               
+              // Skip completely empty lines
+              if (!trimmedLine) {
+                return <div key={index} className="h-1" />;
+              }
+              
+              // Detect headings
               if (trimmedLine.startsWith('### ')) {
-                // Check if this is the first heading AND we're on page 1 (title)
                 const allLines = getCurrentPageContent().split('\n');
                 const headingsBeforeThisOne = allLines.slice(0, index).filter(l => l.trim().startsWith('### ')).length;
                 const isBookTitle = currentPage === 1 && headingsBeforeThisOne === 0;
                 
                 return (
                   <h3 key={index} className={isBookTitle 
-                    ? "text-4xl font-bold text-primary-600 mt-4 mb-8 text-center"
-                    : "text-2xl font-bold text-slate-900 mt-6 mb-3"}>
+                    ? "text-3xl font-bold text-primary-600 mt-0 mb-8 text-center"
+                    : "text-2xl font-bold text-slate-900 mt-8 mb-4"}>
                     {trimmedLine.replace('### ', '')}
                   </h3>
                 );
               }
+              
               // Detect page breaks
-              if (line.trim() === '---') {
-                return (
-                  <div key={index} className="my-8 border-t border-slate-300 opacity-50" />
-                );
-              }
-              // Empty lines create paragraph spacing
-              if (line.trim() === '') {
-                return <div key={index} className="h-4" />;
+              if (trimmedLine === '---') {
+                return <div key={index} className="my-8 border-t border-slate-300 opacity-50" />;
               }
               // Regular paragraphs with sentence-level highlighting
               const lineText = line.trim();
+              
+              // Skip completely empty lines
+              if (!lineText) {
+                return null;
+              }
+              
               const lineSentences = splitIntoSentences(lineText);
+              
+              // If no proper sentences, render as plain text
+              if (lineSentences.length === 0 || lineSentences.every(s => !s.trim())) {
+                return (
+                  <p key={index} className="text-slate-800 mb-4 text-justify leading-relaxed">
+                    {lineText}
+                  </p>
+                );
+              }
 
               return (
-                <p key={index} className="text-slate-800 mb-2 text-justify leading-relaxed">
+                <p key={index} className="text-slate-800 mb-6 leading-relaxed" style={{ textIndent: '2em' }}>
                   {lineSentences.map((sentence, sentIndex) => {
                     // Check if this sentence matches the currently highlighted text from Polly
                     // Use includes for more forgiving match (Polly may have slight variations)
