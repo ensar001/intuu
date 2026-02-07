@@ -45,78 +45,125 @@ export const parsePdfFile = async (file) => {
         // Extract text preserving the source order
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
           const page = await pdf.getPage(pageNum);
-          const textContent = await page.getTextContent();
+          const textContent = await page.getTextContent({
+            normalizeWhitespace: true,
+            disableCombineTextItems: false
+          });
 
-          // Group items by Y position to detect lines
-          const lines = {};
-          
+          // Group items by Y position with tolerance to detect lines
+          const lines = [];
+
           textContent.items.forEach((item) => {
-            const y = Math.round(item.transform[5]);
-            if (!lines[y]) {
-              lines[y] = [];
+            const y = item.transform[5];
+            const height = item.height || Math.abs(item.transform[3]) || 0;
+            const tolerance = height ? height * 0.6 : 2;
+
+            let line = lines.find(entry => Math.abs(entry.y - y) <= tolerance);
+            if (!line) {
+              line = { y, items: [] };
+              lines.push(line);
             }
-            lines[y].push({
+
+            line.items.push({
               text: item.str,
               x: item.transform[4],
-              height: item.height,
-              fontSize: item.height
+              width: item.width || 0,
+              height,
+              fontSize: height
             });
+
+            line.y = (line.y * (line.items.length - 1) + y) / line.items.length;
           });
 
           // Sort lines by Y position (top to bottom)
-          const sortedY = Object.keys(lines).sort((a, b) => b - a);
-          
-          let pageText = '';
-          let lastY = null;
-          let lastFontSize = null;
+          lines.sort((a, b) => b.y - a.y);
 
-          sortedY.forEach((y) => {
-            const lineItems = lines[y].sort((a, b) => a.x - b.x);
-            const avgFontSize = lineItems.reduce((sum, item) => sum + item.fontSize, 0) / lineItems.length;
-            
-            // Check if this is a heading (larger font or first line of book)
-            const isHeading = isFirstHeading && pageNum === 1 && pageText.length === 0;
-            
-            // Build line text
-            let lineText = '';
-            lineItems.forEach((item, idx) => {
-              lineText += item.text;
-              
-              // Add space if needed
-              const next = lineItems[idx + 1];
-              if (next && !/\s$/.test(item.text) && !/^\s/.test(next.text)) {
-                lineText += ' ';
+          const viewport = page.getViewport({ scale: 1 });
+          const columnSplitX = viewport.width * 0.55;
+
+          const buildTextFromLines = (lineSet) => {
+            let text = '';
+            let lastY = null;
+            let lastIndent = null;
+
+            lineSet.forEach((line) => {
+              const lineItems = line.items.sort((a, b) => a.x - b.x);
+              const avgFontSize = lineItems.reduce((sum, item) => sum + (item.fontSize || 0), 0) / lineItems.length || 12;
+              const lineIndent = lineItems[0]?.x ?? 0;
+
+              // Check if this is a heading (larger font or first line of book)
+              const isHeading = isFirstHeading && pageNum === 1 && text.length === 0;
+
+              // Build line text with gap-based spacing
+              let lineText = '';
+              lineItems.forEach((item, idx) => {
+                lineText += item.text;
+
+                const next = lineItems[idx + 1];
+                if (next) {
+                  const gap = next.x - (item.x + (item.width || 0));
+                  if (gap > avgFontSize * 0.2) {
+                    lineText += ' ';
+                  }
+                }
+              });
+
+              lineText = lineText.trim();
+
+              if (lineText.length > 0) {
+                const yGap = lastY !== null ? Math.abs(lastY - line.y) : 0;
+                const indentGap = lastIndent !== null ? Math.abs(lineIndent - lastIndent) : 0;
+                const newParagraph = lastY !== null && (yGap > avgFontSize * 1.6 || indentGap > avgFontSize * 1.5);
+
+                if (newParagraph) {
+                  text += '\n\n';
+                } else if (text.length > 0) {
+                  if (text.endsWith('-')) {
+                    text = text.slice(0, -1);
+                  } else if (!text.endsWith('\n')) {
+                    text += ' ';
+                  }
+                }
+
+                if (isHeading) {
+                  text += '### ' + lineText;
+                  isFirstHeading = false;
+                } else {
+                  text += lineText;
+                }
+
+                lastY = line.y;
+                lastIndent = lineIndent;
               }
             });
-            
-            lineText = lineText.trim();
-            
-            if (lineText.length > 0) {
-              // Add paragraph breaks based on vertical spacing
-              if (lastY !== null && Math.abs(lastY - parseInt(y)) > avgFontSize * 2) {
-                pageText += '\n\n';
-              } else if (pageText.length > 0) {
-                // Check if line ends with hyphen (word split across lines)
-                if (pageText.endsWith('-')) {
-                  pageText = pageText.slice(0, -1); // Remove hyphen
-                  // Don't add space, join directly
-                } else if (!pageText.endsWith('\n')) {
-                  pageText += ' ';
-                }
-              }
-              
-              // Format as heading if needed
-              if (isHeading) {
-                pageText += '### ' + lineText;
-                isFirstHeading = false;
-              } else {
-                pageText += lineText;
-              }
-              
-              lastY = parseInt(y);
-              lastFontSize = avgFontSize;
+
+            return text;
+          };
+
+          const lineIndents = lines.map(line => line.items.sort((a, b) => a.x - b.x)[0]?.x ?? 0);
+          const leftColumn = [];
+          const rightColumn = [];
+
+          lineIndents.forEach((indent, index) => {
+            if (indent > columnSplitX) {
+              rightColumn.push(lines[index]);
+            } else {
+              leftColumn.push(lines[index]);
             }
           });
+
+          const leftRatio = leftColumn.length / Math.max(lines.length, 1);
+          const rightRatio = rightColumn.length / Math.max(lines.length, 1);
+          const hasTwoColumns = leftRatio > 0.2 && rightRatio > 0.2;
+
+          let pageText = '';
+          if (hasTwoColumns) {
+            const leftText = buildTextFromLines(leftColumn);
+            const rightText = buildTextFromLines(rightColumn);
+            pageText = leftText ? `${leftText}\n\n${rightText}` : rightText;
+          } else {
+            pageText = buildTextFromLines(lines);
+          }
 
           // Clean and normalize page text
           pageText = pageText
@@ -478,7 +525,7 @@ export const deleteBook = async (bookId) => {
 };
 
 /**
- * Translate text using Gemini API
+ * Translate text using DeepL API
  */
 export const translateText = async (text, targetLanguage = 'en', sourceLanguage = 'de') => {
   try {

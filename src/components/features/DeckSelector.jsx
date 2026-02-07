@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Eye, Lock, Globe, ChevronRight, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, Eye, Lock, ChevronRight, RotateCcw } from 'lucide-react';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { deckApi } from '../../utils/deckApi';
@@ -11,7 +11,6 @@ export default function DeckSelector({ onSelectDeck, onClose, language = 'de', o
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newDeckTitle, setNewDeckTitle] = useState('');
-  const [newDeckPublic, setNewDeckPublic] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
@@ -49,10 +48,9 @@ export default function DeckSelector({ onSelectDeck, onClose, language = 'de', o
     try {
       setCreating(true);
       setError('');
-      const newDeck = await deckApi.createDeck(user.id, newDeckTitle.trim(), newDeckPublic, language);
+      const newDeck = await deckApi.createDeck(user.id, newDeckTitle.trim(), language);
       setDecks([...decks, newDeck]);
       setNewDeckTitle('');
-      setNewDeckPublic(false);
       setShowCreateForm(false);
       onSelectDeck(newDeck);
     } catch (err) {
@@ -201,25 +199,6 @@ export default function DeckSelector({ onSelectDeck, onClose, language = 'de', o
               />
             </div>
 
-            <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg">
-              <input
-                type="checkbox"
-                id="deckPublic"
-                checked={newDeckPublic}
-                onChange={(e) => setNewDeckPublic(e.target.checked)}
-                className="w-4 h-4 text-primary-600 rounded focus:ring-2 focus:ring-primary-500"
-                disabled={creating}
-              />
-              <label htmlFor="deckPublic" className="text-sm text-slate-700 cursor-pointer">
-                <div className="flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-green-600" />
-                  <span className="font-medium">Make this deck public</span>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Other users will be able to view and study from this deck
-                </p>
-              </label>
-            </div>
 
             <div className="flex gap-3">
               <Button

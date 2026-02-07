@@ -9,6 +9,9 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { supabase } from '../../../utils/supabaseClient';
 import { userStatsApi } from '../../../utils/userStatsApi';
 import { splitIntoSentences } from '../../../utils/textUtils';
+import DeckSelector from '../DeckSelector';
+import { cardApi } from '../../../utils/deckApi';
+import { validateFlashcardContent } from '../../../utils/inputValidation';
 
 const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
   const { bookId } = useParams();
@@ -24,8 +27,14 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
   const [charsPerPage] = useState(2000);
   const [fontSize, setFontSize] = useState(16);
   const [selectedText, setSelectedText] = useState('');
+  const [selectedSentence, setSelectedSentence] = useState('');
   const [showTranslation, setShowTranslation] = useState(false);
   const [translationPosition, setTranslationPosition] = useState({ top: 0, left: 0 });
+  const [showDeckSelector, setShowDeckSelector] = useState(false);
+  const [pendingCardData, setPendingCardData] = useState(null);
+  const [isSavingCard, setIsSavingCard] = useState(false);
+  const [cardMessage, setCardMessage] = useState({ type: 'success', text: '' });
+  const cardMessageTimeoutRef = useRef(null);
   
   // TTS state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -52,10 +61,20 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
     // Handle text selection
     const handleSelection = () => {
       const selection = window.getSelection();
+
+      if (!selection || selection.rangeCount === 0) {
+        setShowTranslation(false);
+        return;
+      }
+
       const text = selection.toString().trim();
 
       if (text && contentRef.current?.contains(selection.anchorNode)) {
+        const pageText = getCurrentPageContent();
+        const exampleSentence = findExampleSentence(pageText, text);
+
         setSelectedText(text);
+        setSelectedSentence(exampleSentence);
         
         // Get selection position
         const range = selection.getRangeAt(0);
@@ -69,6 +88,7 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
         setShowTranslation(true);
       } else {
         setShowTranslation(false);
+        setSelectedSentence('');
       }
     };
 
@@ -119,6 +139,19 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
     }
     
     return book.content.slice(start, end);
+  };
+
+  const findExampleSentence = (pageText, selectionText) => {
+    const selection = selectionText?.trim();
+    if (!selection) return selectionText;
+
+    const selectionNorm = selection.toLowerCase().replace(/\s+/g, ' ');
+    const sentences = splitIntoSentences(pageText || '');
+    const match = sentences.find(sentence => (
+      sentence.toLowerCase().replace(/\s+/g, ' ').includes(selectionNorm)
+    ));
+
+    return match?.trim() || selection;
   };
 
   const handlePrevPage = () => {
@@ -174,7 +207,81 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
 
   const handleCloseTranslation = () => {
     setShowTranslation(false);
+    setSelectedSentence('');
     window.getSelection()?.removeAllRanges();
+  };
+
+  const scheduleCardMessageClear = () => {
+    if (cardMessageTimeoutRef.current) {
+      clearTimeout(cardMessageTimeoutRef.current);
+    }
+
+    cardMessageTimeoutRef.current = setTimeout(() => {
+      setCardMessage({ type: 'success', text: '' });
+    }, 6000);
+  };
+
+  const handleRequestAddFlashcard = (frontText, backText, exampleText) => {
+    setCardMessage({ type: 'success', text: '' });
+    setPendingCardData({ frontText, backText, exampleText });
+    setShowDeckSelector(true);
+  };
+
+  const handleSelectDeckForCard = async (deck) => {
+    if (!pendingCardData) return;
+
+    const frontValidation = validateFlashcardContent(pendingCardData.frontText);
+    const backValidation = validateFlashcardContent(pendingCardData.backText);
+    const exampleValidation = validateFlashcardContent(pendingCardData.exampleText);
+
+    if (!frontValidation.valid) {
+      setCardMessage({ type: 'error', text: `Front: ${frontValidation.error}` });
+      scheduleCardMessageClear();
+      setShowDeckSelector(false);
+      return;
+    }
+
+    if (!backValidation.valid) {
+      setCardMessage({ type: 'error', text: `Back: ${backValidation.error}` });
+      scheduleCardMessageClear();
+      setShowDeckSelector(false);
+      return;
+    }
+
+    if (!exampleValidation.valid) {
+      setCardMessage({ type: 'error', text: `Example: ${exampleValidation.error}` });
+      scheduleCardMessageClear();
+      setShowDeckSelector(false);
+      return;
+    }
+
+    try {
+      setIsSavingCard(true);
+      setCardMessage({ type: 'success', text: '' });
+
+      const formattedBackText = `${backValidation.sanitized}\n\nExample: ${exampleValidation.sanitized}`;
+      await cardApi.createCard(
+        deck.id,
+        frontValidation.sanitized,
+        formattedBackText
+      );
+
+      setCardMessage({ type: 'success', text: 'Successfully saved' });
+      scheduleCardMessageClear();
+      setShowDeckSelector(false);
+      setPendingCardData(null);
+    } catch (error) {
+      console.error('Failed to create flashcard:', error);
+      setCardMessage({ type: 'error', text: 'Failed to create flashcard. Please try again.' });
+      scheduleCardMessageClear();
+      setShowDeckSelector(false);
+    } finally {
+      setIsSavingCard(false);
+    }
+  };
+
+  const handleCloseDeckSelector = () => {
+    setShowDeckSelector(false);
   };
 
   const synthesizeSpeech = async () => {
@@ -189,12 +296,9 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
       const pageText = getCurrentPageContent()
         .replace(/###\s/g, '') // Remove heading markers
         .replace(/---/g, '') // Remove page break markers
-        .replace(/\n\n+/g, '\n') // Reduce multiple newlines
-        // Aggressively clean punctuation to prevent pronunciation
-        .replace(/[""''«»„‟]/g, ' ') // Replace all quotation marks with space
-        .replace(/[.,;:!?\-—–]/g, ' ') // Replace punctuation with space
         .replace(/[\*_`~\[\]\(\){}]/g, '') // Remove emphasis/formatting marks
-        .replace(/\s+/g, ' ') // Collapse multiple spaces into one
+        .replace(/\n{3,}/g, '\n\n') // Normalize multiple blank lines
+        .replace(/[\t ]{2,}/g, ' ') // Collapse extra spaces
         .trim();
 
       if (!pageText) {
@@ -324,6 +428,9 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (cardMessageTimeoutRef.current) {
+        clearTimeout(cardMessageTimeoutRef.current);
       }
     };
   }, []);
@@ -535,7 +642,7 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
               }
 
               return (
-                <p key={index} className="text-slate-800 mb-6 leading-relaxed" style={{ textIndent: '2em' }}>
+                <p key={index} className="text-slate-800 mb-6 leading-relaxed" style={{ textIndent: 0 }}>
                   {lineSentences.map((sentence, sentIndex) => {
                     // Check if this sentence matches the currently highlighted text from Polly
                     // Use includes for more forgiving match (Polly may have slight variations)
@@ -649,12 +756,24 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
           />
           <TranslationPopover
             selectedText={selectedText}
+            exampleSentence={selectedSentence}
             position={translationPosition}
             onClose={handleCloseTranslation}
             sourceLanguage={book.language}
             targetLanguage={interfaceLanguage}
+            onAddFlashcard={handleRequestAddFlashcard}
+            isSavingCard={isSavingCard}
+            cardMessage={cardMessage}
           />
         </>
+      )}
+
+      {showDeckSelector && (
+        <DeckSelector
+          onSelectDeck={handleSelectDeckForCard}
+          onClose={handleCloseDeckSelector}
+          language={book?.language || currentLanguage || 'de'}
+        />
       )}
     </div>
   );

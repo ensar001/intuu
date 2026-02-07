@@ -63,6 +63,57 @@ const ENGINE_MAP = {
   'ar': 'standard'
 };
 
+const escapeXml = (value) => {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+};
+
+const normalizeTtsText = (text = '') => {
+  return text
+    // Replace ellipses or spaced dots to avoid "punkt punkt punkt"
+    .replace(/\s*\.\s*\.\s*\.+/g, '.')
+    .replace(/…/g, '.')
+    // Collapse repeated punctuation
+    .replace(/([!?.,;:]){2,}/g, '$1')
+    // Remove standalone punctuation tokens
+    .replace(/(^|\s)[,;:!?]+(?=\s|$)/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
+
+const buildSsml = (text) => {
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map(part => part.trim())
+    .filter(Boolean);
+
+  const parts = [];
+
+  paragraphs.forEach((paragraph, paragraphIndex) => {
+    const sentences = splitIntoSentences(paragraph)
+      .map(sentence => sentence.trim())
+      .filter(Boolean);
+
+    if (!sentences.length) {
+      return;
+    }
+
+    const sentenceParts = sentences.map((sentence) => {
+      return `<s>${escapeXml(sentence)}</s>`;
+    });
+
+    parts.push(`<p>${sentenceParts.join('<break time="250ms"/>')}</p>`);
+
+    if (paragraphIndex < paragraphs.length - 1) {
+      parts.push('<break time="400ms"/>');
+    }
+  });
+
+  return `<speak>${parts.join('')}</speak>`;
+};
+
 /**
  * POST /api/tts/synthesize
  * 
@@ -107,22 +158,26 @@ router.post('/synthesize', authMiddleware, async (req, res) => {
     const voice = voiceId || VOICE_MAP[language] || 'Joanna';
     const engine = ENGINE_MAP[language] || 'standard';
 
+    const cleanedText = normalizeTtsText(text);
+
     // Check text length based on engine type
     const maxLength = engine === 'neural' ? 600 : 3000;
-    if (text.length > maxLength) {
+    if (cleanedText.length > maxLength) {
       return res.status(400).json({
         error: `Text too long. Maximum ${maxLength} characters for ${engine} voices.`,
         maxLength
       });
     }
 
+    const ssml = buildSsml(cleanedText);
+
     // Prepare Polly command
     const command = new SynthesizeSpeechCommand({
-      Text: text,
+      Text: ssml,
       OutputFormat: 'mp3',
       VoiceId: voice,
       Engine: engine,
-      TextType: 'text',
+      TextType: 'ssml',
       SampleRate: '24000'
     });
 
@@ -130,7 +185,26 @@ router.post('/synthesize', authMiddleware, async (req, res) => {
 
     // Execute Polly command
     const client = getPollyClient();
-    const response = await client.send(command);
+    let response;
+
+    try {
+      response = await client.send(command);
+    } catch (error) {
+      if (error?.name === 'InvalidSsmlException') {
+        console.warn('[TTS] Invalid SSML, retrying with plain text');
+        const fallbackCommand = new SynthesizeSpeechCommand({
+          Text: cleanedText,
+          OutputFormat: 'mp3',
+          VoiceId: voice,
+          Engine: engine,
+          TextType: 'text',
+          SampleRate: '24000'
+        });
+        response = await client.send(fallbackCommand);
+      } else {
+        throw error;
+      }
+    }
 
     // Convert audio stream to buffer
     const chunks = [];
@@ -263,19 +337,25 @@ router.post('/synthesize-chunked', authMiddleware, async (req, res) => {
 
     const voice = VOICE_MAP[language] || 'Joanna';
     const engine = ENGINE_MAP[language] || 'standard';
-    const maxLength = engine === 'neural' ? 500 : 2800; // Leave buffer for sentence breaks
+    const maxLength = engine === 'neural' ? 450 : 2500; // Leave buffer for SSML tags
+
+    const cleanedText = normalizeTtsText(text);
 
     // Split text into sentences
-    const sentences = splitIntoSentences(text);
+    const sentences = splitIntoSentences(cleanedText);
     const chunks = [];
     let currentChunk = '';
 
     for (const sentence of sentences) {
-      if ((currentChunk + sentence).length <= maxLength) {
-        currentChunk += sentence;
+      const sentenceText = sentence.trim();
+      if (!sentenceText) continue;
+
+      const candidate = currentChunk ? `${currentChunk} ${sentenceText}` : sentenceText;
+      if (candidate.length <= maxLength) {
+        currentChunk = candidate;
       } else {
         if (currentChunk) chunks.push(currentChunk.trim());
-        currentChunk = sentence;
+        currentChunk = sentenceText;
       }
     }
     if (currentChunk) chunks.push(currentChunk.trim());
@@ -291,15 +371,33 @@ router.post('/synthesize-chunked', authMiddleware, async (req, res) => {
     for (let i = 0; i < chunks.length; i++) {
       // Generate audio
       const audioCommand = new SynthesizeSpeechCommand({
-        Text: chunks[i],
+        Text: buildSsml(chunks[i]),
         OutputFormat: 'mp3',
         VoiceId: voice,
         Engine: engine,
-        TextType: 'text',
+        TextType: 'ssml',
         SampleRate: '24000'
       });
 
-      const audioResponse = await client.send(audioCommand);
+      let audioResponse;
+      try {
+        audioResponse = await client.send(audioCommand);
+      } catch (error) {
+        if (error?.name === 'InvalidSsmlException') {
+          console.warn('[TTS] Invalid SSML for audio, retrying with plain text');
+          const fallbackAudioCommand = new SynthesizeSpeechCommand({
+            Text: chunks[i],
+            OutputFormat: 'mp3',
+            VoiceId: voice,
+            Engine: engine,
+            TextType: 'text',
+            SampleRate: '24000'
+          });
+          audioResponse = await client.send(fallbackAudioCommand);
+        } else {
+          throw error;
+        }
+      }
       const chunkBuffers = [];
       for await (const chunk of audioResponse.AudioStream) {
         chunkBuffers.push(chunk);
@@ -309,15 +407,33 @@ router.post('/synthesize-chunked', authMiddleware, async (req, res) => {
 
       // Generate speech marks (timing data)
       const marksCommand = new SynthesizeSpeechCommand({
-        Text: chunks[i],
+        Text: buildSsml(chunks[i]),
         OutputFormat: 'json',
         VoiceId: voice,
         Engine: engine,
-        TextType: 'text',
+        TextType: 'ssml',
         SpeechMarkTypes: ['sentence']
       });
 
-      const marksResponse = await client.send(marksCommand);
+      let marksResponse;
+      try {
+        marksResponse = await client.send(marksCommand);
+      } catch (error) {
+        if (error?.name === 'InvalidSsmlException') {
+          console.warn('[TTS] Invalid SSML for speech marks, retrying with plain text');
+          const fallbackMarksCommand = new SynthesizeSpeechCommand({
+            Text: chunks[i],
+            OutputFormat: 'json',
+            VoiceId: voice,
+            Engine: engine,
+            TextType: 'text',
+            SpeechMarkTypes: ['sentence']
+          });
+          marksResponse = await client.send(fallbackMarksCommand);
+        } else {
+          throw error;
+        }
+      }
       const marksBuffers = [];
       for await (const chunk of marksResponse.AudioStream) {
         marksBuffers.push(chunk);

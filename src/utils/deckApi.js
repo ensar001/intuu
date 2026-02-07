@@ -64,14 +64,16 @@ export const cardApi = {
 
   // Create a new card
   createCard: async (deckId, frontText, backText, audioUrl = null) => {
+    const payload = {
+      deck_id: deckId,
+      front_text: frontText,
+      back_text: backText,
+      ...(audioUrl ? { audio_url: audioUrl } : {})
+    };
+
     const { data, error } = await supabase
       .from('cards')
-      .insert([{
-        deck_id: deckId,
-        front_text: frontText,
-        back_text: backText,
-        audio_url: audioUrl
-      }])
+      .insert([payload])
       .select()
       .single();
     

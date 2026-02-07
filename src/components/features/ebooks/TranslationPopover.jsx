@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, Plus } from 'lucide-react';
 import { translateText } from '../../../utils/ebookApi';
+import MessageAlert from '../settings/MessageAlert';
 
-const TranslationPopover = ({ selectedText, position, onClose, sourceLanguage, targetLanguage }) => {
+const TranslationPopover = ({ selectedText, exampleSentence, position, onClose, sourceLanguage, targetLanguage, onAddFlashcard, isSavingCard, cardMessage }) => {
   const [translation, setTranslation] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -31,6 +32,11 @@ const TranslationPopover = ({ selectedText, position, onClose, sourceLanguage, t
     }
   };
 
+  const handleAddFlashcard = () => {
+    if (!translation || loading || error) return;
+    onAddFlashcard(selectedText, translation, exampleSentence || selectedText);
+  };
+
   return (
     <div
       className="fixed z-50 bg-white rounded-xl shadow-educational-lg border border-slate-200 max-w-md w-full"
@@ -55,6 +61,9 @@ const TranslationPopover = ({ selectedText, position, onClose, sourceLanguage, t
 
       {/* Content */}
       <div className="p-4 space-y-3">
+        {cardMessage?.text && (
+          <MessageAlert message={cardMessage} />
+        )}
         {/* Original Text */}
         <div>
           <p className="text-xs font-medium text-slate-500 mb-1 uppercase tracking-wide">
@@ -84,6 +93,29 @@ const TranslationPopover = ({ selectedText, position, onClose, sourceLanguage, t
             </p>
           )}
         </div>
+
+        {/* Actions */}
+        {!loading && !error && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleAddFlashcard}
+              disabled={isSavingCard}
+              className="flex items-center gap-2 px-3 py-2 bg-primary-500 hover:bg-primary-600 disabled:bg-slate-300 text-white rounded-lg transition-colors text-sm"
+            >
+              {isSavingCard ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  Add to Flashcards
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tip */}
