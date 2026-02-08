@@ -572,7 +572,7 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
 
         {/* Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <Card className="p-8 md:p-12">
+        <Card className="py-8 pr-4 pl-16 md:py-12 md:pr-6 md:pl-20">
           {/* Mobile Book Title */}
           <div className="md:hidden mb-6 pb-6 border-b border-slate-200">
             <h1 className="font-bold text-lg text-slate-800">{book.title}</h1>
@@ -587,7 +587,7 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
             className="prose prose-slate max-w-none select-text"
             style={{
               fontSize: `${fontSize}px`,
-              lineHeight: '1.9',
+              lineHeight: '1.6',
               userSelect: 'text',
               WebkitUserSelect: 'text',
               MozUserSelect: 'text',
@@ -642,7 +642,7 @@ const EbookReader = ({ currentLanguage, interfaceLanguage = 'en' }) => {
               }
 
               return (
-                <p key={index} className="text-slate-800 mb-6 leading-relaxed" style={{ textIndent: 0 }}>
+                <p key={index} className="text-slate-800 mb-2 leading-relaxed" style={{ textIndent: 0 }}>
                   {lineSentences.map((sentence, sentIndex) => {
                     // Check if this sentence matches the currently highlighted text from Polly
                     // Use includes for more forgiving match (Polly may have slight variations)
